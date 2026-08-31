@@ -1,0 +1,354 @@
+<style>
+.bsim-panel {
+  --bsim-ink: #e8edf7;
+  --bsim-muted: #8e99ad;
+  --bsim-line: rgb(151 166 190 / 18%);
+  --bsim-panel: #151a24;
+  --bsim-raised: #1b2230;
+  --bsim-accent: #58c4dc;
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%, 760px);
+  margin: 12px auto;
+  padding: 18px;
+  overflow: hidden;
+  color: var(--bsim-ink);
+  background: linear-gradient(135deg, rgb(88 196 220 / 8%), transparent 38%), var(--bsim-panel);
+  border: 1px solid var(--bsim-line);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 24%);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
+}
+.bsim-panel *, .bsim-panel *::before, .bsim-panel *::after { box-sizing: border-box; }
+.bsim-panel-idle { background: linear-gradient(145deg, rgb(88 196 220 / 10%), transparent 46%), var(--bsim-panel); }
+.bsim-asset-preload {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;
+}
+.bsim-asset-preload img { width: 1px; height: 1px; }
+.bsim-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  margin-bottom: 16px; padding-bottom: 13px; border-bottom: 1px solid var(--bsim-line);
+}
+.bsim-header h3 {
+  margin: 2px 0 0; color: var(--bsim-ink); font-size: clamp(18px, 3vw, 25px);
+  line-height: 1.15; letter-spacing: -0.025em;
+}
+.bsim-kicker, .bsim-status, .bsim-log-title {
+  color: var(--bsim-accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+}
+.bsim-status {
+  flex: 0 0 auto; padding: 5px 8px; color: #bceef6; background: rgb(88 196 220 / 10%);
+  border: 1px solid rgb(88 196 220 / 25%); border-radius: 999px;
+}
+.bsim-intro { margin: 0 0 15px; color: var(--bsim-muted); font-size: 13px; line-height: 1.65; }
+.bsim-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bsim-unit {
+  min-width: 0; padding: 14px; background: var(--bsim-raised);
+  border: 1px solid var(--bsim-line); border-radius: 12px;
+}
+.bsim-portrait-frame {
+  position: relative; width: 100%; aspect-ratio: 5 / 3; min-height: 132px; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #303b51, #10141c 72%);
+  border: 1px solid rgb(151 166 190 / 16%); border-radius: 10px; isolation: isolate;
+}
+.bsim-portrait-fallback {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 0;
+  color: rgb(232 237 247 / 9%); font-size: clamp(54px, 12vw, 92px); font-weight: 900;
+}
+.bsim-heartbeat-layer, .bsim-hit-layer { position: absolute; inset: 0; transform-origin: 50% 58%; }
+.bsim-portrait {
+  position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: center 28%; color: transparent;
+}
+.bsim-portrait-result {
+  position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%; opacity: 0;
+  object-fit: cover; object-position: center; animation: bsim-result-portrait-enter 900ms cubic-bezier(.18,.85,.25,1) 4500ms both;
+}
+.bsim-damage-flash { position: absolute; inset: 0; z-index: 3; opacity: 0; background: #ff294d; mix-blend-mode: screen; pointer-events: none; }
+.bsim-conditions {
+  position: absolute; top: 8px; left: 8px; z-index: 5; display: flex; flex-wrap: wrap; gap: 5px;
+}
+.bsim-condition {
+  padding: 3px 6px; color: #fff; background: rgb(9 12 18 / 76%); border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 4px; box-shadow: 0 2px 8px rgb(0 0 0 / 38%); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+}
+.bsim-condition-groggy { color: #ffd786; border-color: rgb(240 200 109 / 45%); }
+.bsim-condition-down, .bsim-condition-ko { color: #ff9aaa; border-color: rgb(228 91 112 / 48%); }
+.bsim-condition.is-new { animation: bsim-status-enter 720ms cubic-bezier(.2,.9,.2,1.35) 1425ms both; }
+.bsim-resources { margin-top: 11px; }
+
+.bsim-resolution {
+  position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  min-height: 330px; margin: -2px 0 13px; padding: 11px 15px; overflow: hidden;
+  background: linear-gradient(90deg, rgb(7 10 15 / 88%), rgb(25 32 44 / 90%), rgb(7 10 15 / 88%));
+  border: 1px solid var(--bsim-line); border-radius: 12px;
+}
+.bsim-resolution-interval, .bsim-resolution-both_groggy { min-height: 118px; }
+.bsim-resolution::before {
+  content: ''; position: absolute; inset: 0; opacity: .28;
+  background: repeating-linear-gradient(90deg, transparent 0 22px, rgb(255 255 255 / 5%) 23px 24px);
+  transform: translateX(-24px); animation: bsim-scan 900ms linear both;
+}
+.bsim-action-readout {
+  position: absolute; inset: 8px 12px auto; z-index: 8; display: flex; justify-content: space-between;
+  color: var(--bsim-muted); font-size: 10px; font-weight: 700;
+}
+.bsim-cinematic-stage { position: absolute; inset: 24px 0 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.bsim-cinematic-stage::after {
+  content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0 38%, rgb(7 10 15 / 35%) 48%, rgb(7 10 15 / 35%) 52%, transparent 62%);
+}
+.bsim-cinematic-actor { position: absolute; bottom: -3%; width: 55%; height: 108%; z-index: 2; }
+.bsim-cinematic-player { left: -3%; }
+.bsim-cinematic-enemy { right: -3%; }
+.bsim-cinematic-image {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; object-fit: contain; object-position: center bottom;
+  filter: drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); transform-origin: 50% 78%;
+}
+.bsim-cinematic-player .bsim-cinematic-action { animation: bsim-action-player 2400ms cubic-bezier(.18,.82,.25,1) 150ms both; }
+.bsim-cinematic-enemy .bsim-cinematic-action { animation: bsim-action-enemy 2400ms cubic-bezier(.18,.82,.25,1) 150ms both; }
+.bsim-cinematic-player .bsim-cinematic-resolve { animation: bsim-resolve-player 1300ms cubic-bezier(.2,.82,.25,1) 2050ms both; }
+.bsim-cinematic-enemy .bsim-cinematic-resolve { animation: bsim-resolve-enemy 1300ms cubic-bezier(.2,.82,.25,1) 2050ms both; }
+.bsim-cinematic-player .bsim-cinematic-effect { animation: bsim-effect-player 1700ms cubic-bezier(.2,.8,.25,1) 2850ms both; }
+.bsim-cinematic-enemy .bsim-cinematic-effect { animation: bsim-effect-enemy 1700ms cubic-bezier(.2,.8,.25,1) 2850ms both; }
+.bsim-cinematic-player .bsim-cinematic-state { animation: bsim-state-player 1500ms cubic-bezier(.2,.8,.25,1) 3800ms both; }
+.bsim-cinematic-enemy .bsim-cinematic-state { animation: bsim-state-enemy 1500ms cubic-bezier(.2,.8,.25,1) 3800ms both; }
+.bsim-dice-stage { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; gap: 13px; pointer-events: none; }
+.bsim-dice-stage b { color: #657086; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: .12em; }
+.bsim-die {
+  display: grid; place-items: center; width: 44px; height: 44px; color: #f6f8fc; background: #242d3d;
+  border: 1px solid rgb(255 255 255 / 24%); border-radius: 10px; box-shadow: 0 8px 18px rgb(0 0 0 / 35%);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 20px; font-weight: 900;
+  animation: bsim-dice-roll 840ms cubic-bezier(.3,.8,.25,1) 900ms both;
+}
+.bsim-die-enemy { animation-direction: normal; }
+.bsim-verdict {
+  position: absolute; left: 50%; bottom: 12px; z-index: 9; opacity: 0; transform: translate(-50%,8px) scale(.72);
+  color: #dce5f3; text-shadow: 0 2px 12px rgb(0 0 0 / 65%); white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 900; letter-spacing: .14em;
+  animation: bsim-verdict-pop 600ms cubic-bezier(.15,.9,.25,1.4) 1800ms both;
+}
+.bsim-resolution-win .bsim-verdict { color: #78deae; }
+.bsim-resolution-lose .bsim-verdict { color: #ff8292; }
+.bsim-resolution-draw .bsim-verdict { color: #f0c86d; }
+.bsim-resolution > small {
+  position: absolute; right: 9px; bottom: 7px; z-index: 3; color: #657086;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 8px;
+}
+.bsim-special-verdict {
+  position: relative; z-index: 9; grid-column: 1 / -1; color: #dce5f3; text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; font-weight: 900; letter-spacing: .16em;
+  animation: bsim-special-enter 850ms cubic-bezier(.18,.88,.28,1.25) 500ms both;
+}
+
+.bsim-float-deltas {
+  position: absolute; right: 8px; bottom: 8px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+}
+.bsim-delta {
+  opacity: 0; padding: 2px 5px; background: rgb(7 10 15 / 82%); border-radius: 4px;
+  box-shadow: 0 3px 9px rgb(0 0 0 / 38%); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px; font-weight: 900; animation: bsim-delta-float 1200ms cubic-bezier(.15,.75,.25,1) 3000ms both;
+}
+.bsim-delta-positive { color: #74d6a3; }
+.bsim-delta-negative { color: #ff8292; }
+.bsim-delta-breakGauge.bsim-delta-positive { color: #f0c86d; }
+
+.bsim-unit.is-hit-light .bsim-hit-layer { animation: bsim-hit-light 390ms ease-out 3100ms both; }
+.bsim-unit.is-hit-medium .bsim-hit-layer { animation: bsim-hit-medium 510ms ease-out 3100ms both; }
+.bsim-unit.is-hit-heavy .bsim-hit-layer { animation: bsim-hit-heavy 645ms cubic-bezier(.2,.8,.3,1) 3050ms both; }
+.bsim-unit.is-hit-light .bsim-damage-flash,
+.bsim-unit.is-hit-medium .bsim-damage-flash,
+.bsim-unit.is-hit-heavy .bsim-damage-flash { animation: bsim-damage-flash 495ms steps(2,end) 3100ms both; }
+
+.bsim-unit.is-danger .bsim-heartbeat-layer { animation: bsim-heartbeat 1.725s ease-in-out infinite; }
+.bsim-unit.is-critical .bsim-heartbeat-layer { animation: bsim-heartbeat-critical 1.02s ease-in-out infinite; }
+.bsim-unit.is-break-danger .bsim-portrait-frame { box-shadow: inset 0 0 0 1px rgb(240 200 109 / 45%), 0 0 14px rgb(214 158 69 / 16%); }
+.bsim-unit.is-break-danger .bsim-portrait { animation: bsim-break-tremor 2.1s steps(2,end) infinite; }
+.bsim-unit.is-groggy .bsim-portrait { filter: saturate(.45) contrast(1.08); }
+.bsim-unit.is-groggy .bsim-portrait-frame { background: radial-gradient(circle, #4b3c26, #11151d 72%); }
+.bsim-unit.is-down .bsim-portrait { filter: grayscale(.75) brightness(.62); transform: translateY(7%) scale(1.04); }
+.bsim-unit.is-winner .bsim-heartbeat-layer,
+.bsim-unit.is-loser .bsim-heartbeat-layer,
+.bsim-unit.is-double-ko .bsim-heartbeat-layer,
+.bsim-unit.is-draw .bsim-heartbeat-layer { animation: none; }
+.bsim-unit.is-loser .bsim-portrait, .bsim-unit.is-double-ko .bsim-portrait { animation: bsim-loser-portrait 780ms ease 4700ms both; }
+.bsim-unit.is-winner .bsim-portrait { animation: bsim-winner-portrait 930ms ease 4700ms both; }
+.bsim-end-overlay {
+  position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; opacity: 0;
+  background: rgb(3 5 8 / 76%); pointer-events: none; animation: bsim-end-curtain 930ms ease 4700ms both;
+}
+.bsim-end-overlay strong {
+  padding: 7px 12px; color: #edf2fa; border: 1px solid rgb(255 255 255 / 42%); border-radius: 5px;
+  text-shadow: 0 3px 14px #000; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: clamp(17px,4vw,27px); letter-spacing: .16em;
+}
+.bsim-unit.is-winner .bsim-end-overlay { background: linear-gradient(135deg, rgb(20 80 86 / 40%), rgb(3 5 8 / 44%)); }
+.bsim-unit.is-winner .bsim-end-overlay strong { color: #9de8e7; border-color: rgb(88 196 220 / 64%); box-shadow: 0 0 22px rgb(88 196 220 / 24%); }
+.bsim-unit.is-double-ko .bsim-end-overlay strong, .bsim-unit.is-loser .bsim-end-overlay strong { color: #ff9aaa; border-color: rgb(228 91 112 / 65%); }
+
+.bsim-continue {
+  display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; margin-top: 12px; padding: 11px 14px;
+  opacity: 0; pointer-events: none; cursor: pointer; color: #e9f8fb; background: rgb(88 196 220 / 12%);
+  border: 1px solid rgb(88 196 220 / 34%); border-radius: 10px; font-size: 12px; font-weight: 700;
+  animation: bsim-continue-ready 540ms ease 5200ms both;
+}
+.bsim-continue span { color: var(--bsim-accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; letter-spacing: .12em; }
+.bsim-continue:hover { background: rgb(88 196 220 / 19%); border-color: rgb(88 196 220 / 55%); }
+
+@keyframes bsim-scan { from { transform: translateX(-24px); } to { transform: translateX(0); } }
+@keyframes bsim-action-player {
+  0% { opacity: 0; transform: translateX(-34%) scale(.9); }
+  16%,76% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(5%) scale(1.04); }
+}
+@keyframes bsim-action-enemy {
+  0% { opacity: 0; transform: translateX(34%) scale(.9); }
+  16%,76% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-5%) scale(1.04); }
+}
+@keyframes bsim-resolve-player {
+  0% { opacity: 0; transform: translateX(-10%) scale(1.12); filter: brightness(1.35) drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); }
+  18%,72% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(4%) scale(1.02); }
+}
+@keyframes bsim-resolve-enemy {
+  0% { opacity: 0; transform: translateX(10%) scale(1.12); filter: brightness(1.35) drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); }
+  18%,72% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-4%) scale(1.02); }
+}
+@keyframes bsim-effect-player {
+  0% { opacity: 0; transform: translateX(-12%) scale(.94); }
+  16%,72% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(3%) scale(1.02); }
+}
+@keyframes bsim-effect-enemy {
+  0% { opacity: 0; transform: translateX(12%) scale(.94); }
+  16%,72% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-3%) scale(1.02); }
+}
+@keyframes bsim-state-player {
+  0% { opacity: 0; transform: translateY(8%) scale(1.08); }
+  18%,72% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-2%) scale(1); }
+}
+@keyframes bsim-state-enemy {
+  0% { opacity: 0; transform: translateY(8%) scale(1.08); }
+  18%,72% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-2%) scale(1); }
+}
+@keyframes bsim-result-portrait-enter {
+  from { opacity: 0; filter: brightness(1.4); transform: scale(1.04); }
+  to { opacity: 1; filter: brightness(1); transform: scale(1); }
+}
+@keyframes bsim-dice-roll {
+  0% { opacity: 0; filter: blur(3px); transform: translateY(-18px) rotate(-110deg) scale(.62); }
+  55% { opacity: 1; filter: blur(1px); transform: translateY(4px) rotate(25deg) scale(1.12); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0) rotate(0) scale(1); }
+}
+@keyframes bsim-verdict-pop { to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+@keyframes bsim-special-enter { from { opacity: 0; letter-spacing: .35em; transform: scale(.78); } to { opacity: 1; letter-spacing: .16em; transform: scale(1); } }
+@keyframes bsim-hit-light { 33% { transform: translateX(-3px); } 66% { transform: translateX(2px); } }
+@keyframes bsim-hit-medium { 25% { transform: translateX(-7px) rotate(-1deg); } 55% { transform: translateX(5px) rotate(1deg); } 80% { transform: translateX(-2px); } }
+@keyframes bsim-hit-heavy { 18% { transform: translateX(-12px) rotate(-2deg) scale(.97); } 46% { transform: translateX(9px) rotate(1.4deg); } 70% { transform: translateX(-5px); } 88% { transform: translateX(2px); } }
+@keyframes bsim-damage-flash { 0%,100% { opacity: 0; } 20%,58% { opacity: .58; } 40%,78% { opacity: .08; } }
+@keyframes bsim-delta-float { 0% { opacity: 0; transform: translateY(10px) scale(.8); } 25%,72% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 1; transform: translateY(-4px) scale(1); } }
+@keyframes bsim-status-enter { from { opacity: 0; transform: scale(1.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes bsim-heartbeat { 0%,38%,100% { transform: scale(1); } 12% { transform: scale(1.018); } 22% { transform: scale(1.006); } }
+@keyframes bsim-heartbeat-critical { 0%,38%,100% { transform: scale(1); } 11% { transform: scale(1.035); } 23% { transform: scale(1.01); } }
+@keyframes bsim-break-tremor { 0%,92%,100% { transform: translateX(0); } 94% { transform: translateX(-1px); } 97% { transform: translateX(1px); } }
+@keyframes bsim-loser-portrait { to { filter: grayscale(1) brightness(.34); transform: scale(.98); } }
+@keyframes bsim-winner-portrait { 50% { filter: brightness(1.18) saturate(1.15); transform: scale(1.025); } 100% { filter: brightness(1.05); transform: scale(1); } }
+@keyframes bsim-end-curtain { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bsim-continue-ready { to { opacity: 1; pointer-events: auto; } }
+.bsim-unit-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px;
+}
+.bsim-unit-head b {
+  min-width: 0; overflow: hidden; color: #f6f8fc; font-size: 14px; text-overflow: ellipsis; white-space: nowrap;
+}
+.bsim-unit-head small { flex: 0 0 auto; color: var(--bsim-muted); font-size: 10px; }
+.bsim-meter { margin-top: 9px; }
+.bsim-meter-label {
+  display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--bsim-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px;
+}
+.bsim-meter-track { width: 100%; height: 7px; overflow: hidden; background: rgb(0 0 0 / 28%); border-radius: 999px; }
+.bsim-meter-fill { display: block; height: 100%; border-radius: inherit; transition: width 270ms ease; }
+.bsim-meter-hp { background: linear-gradient(90deg, #e45b70, #ff8292); }
+.bsim-meter-sta { background: linear-gradient(90deg, #4bbf85, #74d6a3); }
+.bsim-meter-brk { background: linear-gradient(90deg, #d69e45, #f0c86d); }
+.bsim-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
+.bsim-button, .bsim-roster-button, .bsim-exit {
+  appearance: none; cursor: pointer; color: var(--bsim-ink); border: 1px solid var(--bsim-line);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+.bsim-button:hover, .bsim-roster-button:hover, .bsim-exit:hover {
+  transform: translateY(-1px); border-color: rgb(151 166 190 / 42%);
+}
+.bsim-button:active, .bsim-roster-button:active, .bsim-exit:active { transform: translateY(0); }
+.bsim-button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 56px;
+  padding: 10px 12px; background: #202838; border-radius: 10px; text-align: left;
+}
+.bsim-button span {
+  opacity: 0.66; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 9px; letter-spacing: 0.1em;
+}
+.bsim-button b { font-size: 14px; }
+.bsim-attack { border-bottom-color: #e45b70; }
+.bsim-defend { border-bottom-color: #58c4dc; }
+.bsim-evade { border-bottom-color: #b391e6; }
+.bsim-attack:hover { background: rgb(228 91 112 / 13%); }
+.bsim-defend:hover { background: rgb(88 196 220 / 13%); }
+.bsim-evade:hover { background: rgb(179 145 230 / 13%); }
+.bsim-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.bsim-roster-button {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px;
+  background: var(--bsim-raised); border-radius: 9px; text-align: left;
+}
+.bsim-roster-button span { color: var(--bsim-muted); font-size: 9px; }
+.bsim-roster-button b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.bsim-log {
+  max-height: 170px; margin-top: 13px; padding: 11px 12px; overflow-y: auto;
+  background: rgb(5 8 13 / 35%); border: 1px solid var(--bsim-line); border-radius: 10px;
+  scrollbar-color: rgb(151 166 190 / 30%) transparent; scrollbar-width: thin;
+}
+.bsim-log-title { margin-bottom: 7px; }
+.bsim-log-line {
+  padding: 3px 0; color: #b7c0d0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px; line-height: 1.55; border-bottom: 1px solid rgb(151 166 190 / 8%);
+}
+.bsim-result, .bsim-forced, .bsim-hint {
+  margin-top: 13px; padding: 11px 12px; color: var(--bsim-muted); background: rgb(88 196 220 / 7%);
+  border: 1px solid rgb(88 196 220 / 16%); border-radius: 10px; font-size: 12px;
+}
+.bsim-result { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bsim-result strong { color: #f4f7fb; font-size: 16px; }
+.bsim-result .bsim-button-secondary { min-height: auto; }
+.bsim-hint code { padding: 2px 5px; color: #bceef6; background: rgb(0 0 0 / 25%); border-radius: 4px; }
+.bsim-exit {
+  display: block; margin: 10px 0 0 auto; padding: 6px 9px; color: var(--bsim-muted);
+  background: transparent; border-radius: 7px; font-size: 10px;
+}
+@media (max-width: 620px) {
+  .bsim-panel { padding: 13px; border-radius: 12px; }
+  .bsim-grid { grid-template-columns: 1fr; }
+  .bsim-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bsim-unit-head { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 380px) {
+  .bsim-actions, .bsim-roster { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bsim-panel *, .bsim-panel *::before, .bsim-panel *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .bsim-continue { opacity: 1; pointer-events: auto; }
+}
+</style>

@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "chroma_key": {
+    "hex": "#FFFF00",
+    "rgb": [
+      255,
+      255,
+      0
+    ],
+    "threshold": 96.0
+  },
+  "rows": [
+    {
+      "state": "idle",
+      "frames": [
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\00.png",
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\01.png",
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\02.png",
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\03.png",
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\04.png",
+        "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\rows\\idle\\frames\\idle\\05.png"
+      ],
+      "method": "stable-slots"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "registered_row": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\qa\\look-row-9-registered.png",
+  "post_registration_edge_check": "pass",
+  "continuity": "pass",
+  "directions": [
+    {"direction": "000", "expected": "up", "verdict": "pass", "reason": "frontal face with both eyes clearly raised and crown extended upward"},
+    {"direction": "022.5", "expected": "up-right", "verdict": "warning", "reason": "rightward turn is clear; upward eye cue is subtle but follows directly from 000"},
+    {"direction": "045", "expected": "up-right", "verdict": "pass", "reason": "face and eye line move right while crown remains high"},
+    {"direction": "067.5", "expected": "up-right", "verdict": "warning", "reason": "pose reads primarily right, but remains between the 045 family and approved 090"},
+    {"direction": "090", "expected": "right", "verdict": "pass", "reason": "face, eye, mouth, and upper flame unmistakably point to screen-right"},
+    {"direction": "112.5", "expected": "down-right", "verdict": "pass", "reason": "right-facing eye line lowers and upper flame bends forward"},
+    {"direction": "135", "expected": "down-right", "verdict": "pass", "reason": "lowered eye and face angle preserve the screen-right axis"},
+    {"direction": "157.5", "expected": "down-right", "verdict": "pass", "reason": "strong downward-right face angle approaches the down cardinal continuously"}
+  ]
+}

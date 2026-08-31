@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "source_row": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-row-10.png",
+  "post_extraction_edge_check": "pass",
+  "continuity": "pass_with_boundary_review",
+  "directions": [
+    {"direction":"180","expected":"down","observed":"frontal face with both pupils lowered","verdict":"pass","reason":"vertical gaze evidence is unambiguous"},
+    {"direction":"202.5","expected":"down-left","observed":"lowered pupils shift slightly image-left","verdict":"pass","reason":"both axes are readable"},
+    {"direction":"225","expected":"down-left","observed":"lowered leftward gaze increases","verdict":"pass","reason":"clear diagonal progression"},
+    {"direction":"247.5","expected":"down-left","observed":"leftward gaze dominates while remaining below center","verdict":"pass","reason":"smooth approach to the left cardinal"},
+    {"direction":"270","expected":"left","observed":"both eye apertures and pupils point image-left","verdict":"pass","reason":"left cardinal is unmistakable"},
+    {"direction":"292.5","expected":"up-left","observed":"leftward pupils begin rising","verdict":"pass","reason":"both axes are readable"},
+    {"direction":"315","expected":"up-left","observed":"raised leftward gaze strengthens","verdict":"pass","reason":"clear diagonal family"},
+    {"direction":"337.5","expected":"up-left","observed":"strong raised gaze retains a leftward bias","verdict":"pass","reason":"continuous lead-in to 000"}
+  ]
+}

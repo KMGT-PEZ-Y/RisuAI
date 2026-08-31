@@ -1,0 +1,6 @@
+visual_qa=pass
+qa_note=Stable limbless cyan ghost-flame identity across all 11 rows; black headphones and front chain/tag stay attached; no arms, hands, legs, feet, paws, or shoes appear; contact sheets and previews read as coherent state loops.
+direction_semantics=000/090/180/270 pass; 045/315 and 157.5/202.5 retain slight review-only horizontal ambiguity at pet size, while the ordered loop and neighboring poses preserve the intended quadrant.
+review_warnings=Blind-review warnings on horizontal-2 and horizontal-7 are acceptable minor diagonal ambiguity only; continuity warnings are stronger cardinal emphasis changes, not broken snaps; idle stable-slots warning accepted after visual inspection.
+repair_rows=none
+repair_notes=none

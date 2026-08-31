@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "axis_convention": {"000":"up","090":"right","180":"down","270":"left"},
+  "identity_lock": "limbless floating ghost flame; no legs, feet, arms, hands, paws, or shoes",
+  "directions": [
+    {"direction":"000","expected":"up","observed":"both pupils raised on a frontal face","verdict":"pass","reason":"strong vertical evidence"},
+    {"direction":"022.5","expected":"up-right","observed":"raised pupils slightly image-right","verdict":"pass","reason":"up and right components visible"},
+    {"direction":"045","expected":"up-right","observed":"raised gaze advances image-right","verdict":"pass","reason":"clear diagonal midpoint"},
+    {"direction":"067.5","expected":"up-right","observed":"rightward gaze with remaining upward bias","verdict":"pass","reason":"continuous approach to 090"},
+    {"direction":"090","expected":"right","observed":"both pupils and face focus image-right","verdict":"pass","reason":"hard cardinal gate is clear"},
+    {"direction":"112.5","expected":"down-right","observed":"rightward gaze begins lowering","verdict":"pass","reason":"down and right components visible"},
+    {"direction":"135","expected":"down-right","observed":"lowered rightward gaze","verdict":"pass","reason":"clear diagonal midpoint"},
+    {"direction":"157.5","expected":"down-right","observed":"strong down gaze with a rightward bias","verdict":"pass","reason":"continuous approach to 180"},
+    {"direction":"180","expected":"down","observed":"both pupils lowered on a frontal face","verdict":"pass","reason":"hard cardinal gate is clear"},
+    {"direction":"202.5","expected":"down-left","observed":"lowered pupils slightly image-left","verdict":"pass","reason":"down and left components visible"},
+    {"direction":"225","expected":"down-left","observed":"lowered gaze advances image-left","verdict":"pass","reason":"clear diagonal midpoint"},
+    {"direction":"247.5","expected":"down-left","observed":"leftward gaze with remaining downward bias","verdict":"pass","reason":"continuous approach to 270"},
+    {"direction":"270","expected":"left","observed":"both pupils and face focus image-left","verdict":"pass","reason":"hard cardinal gate is clear"},
+    {"direction":"292.5","expected":"up-left","observed":"leftward gaze begins rising","verdict":"pass","reason":"up and left components visible"},
+    {"direction":"315","expected":"up-left","observed":"raised leftward gaze","verdict":"pass","reason":"clear diagonal midpoint"},
+    {"direction":"337.5","expected":"up-left","observed":"strong up gaze with a leftward bias","verdict":"pass","reason":"continuous wrap to 000"}
+  ],
+  "continuity_review": {
+    "verdict": "pass",
+    "note": "All 16 poses form a clockwise gaze loop. Automated warnings at 157.5→180 and 337.5→000 reflect stronger cardinal expression changes, not a visible identity break or detached accessory pop."
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "ok": true,
+  "strip": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-cardinals.png",
+  "directions": [
+    "000",
+    "090",
+    "180",
+    "270"
+  ],
+  "errors": [],
+  "repairs": [
+    {
+      "direction": "000",
+      "source": "C:\\Users\\xor09\\.codex\\generated_images\\01a05315-b759-73f1-ae0a-746ce554a35d\\call_eXzyMp5opOGf6vLC3nH4CRMD.png",
+      "edge_pixels": 0,
+      "approved": true
+    },
+    {
+      "direction": "090",
+      "source": "C:\\Users\\xor09\\.codex\\generated_images\\01a0530f-f88e-79e0-9248-3a7137d9358d\\call_Gfim7B2VLoUG11T3dgaiaeGA.png",
+      "edge_pixels": 0,
+      "approved": true
+    }
+  ],
+  "anchors": [
+    {
+      "direction": "000",
+      "source_box": [
+        0,
+        0,
+        543,
+        724
+      ],
+      "used_pixels": 124004,
+      "edge_pixels": 0,
+      "output": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-anchors\\000.png"
+    },
+    {
+      "direction": "090",
+      "source_box": [
+        543,
+        0,
+        1086,
+        724
+      ],
+      "used_pixels": 112836,
+      "edge_pixels": 0,
+      "output": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-anchors\\090.png"
+    },
+    {
+      "direction": "180",
+      "source_box": [
+        1086,
+        0,
+        1629,
+        724
+      ],
+      "used_pixels": 157853,
+      "edge_pixels": 0,
+      "output": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-anchors\\180.png"
+    },
+    {
+      "direction": "270",
+      "source_box": [
+        1629,
+        0,
+        2172,
+        724
+      ],
+      "used_pixels": 142819,
+      "edge_pixels": 0,
+      "output": "C:\\Users\\xor09\\Desktop\\RisuAI\\assets\\dokkaebi-fire-pet\\decoded\\look-anchors\\270.png"
+    }
+  ]
+}

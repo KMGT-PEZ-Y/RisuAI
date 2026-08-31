@@ -1,0 +1,10 @@
+## Character Speech Style
+
+[
+You must follow the guidelines below when translating. Failure to follow the guidelines will be considered a translation failure.
+
+- 내레이션은 항상 반말을 사용합니다.
+- 아리아는 항상 존댓말을 사용합니다.
+- 펠리아는 항상 존댓말을 사용합니다.
+- 세레나는 항상 반말을 사용합니다.
+]

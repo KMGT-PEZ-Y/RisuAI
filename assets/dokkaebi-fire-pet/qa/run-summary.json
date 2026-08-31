@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "pet_id": "dokkaebi-fire",
+  "display_name": "도깨비불",
+  "identity": "limbless floating cyan ghost flame with attached black headphones, front chain, and hanging tag",
+  "identity_exclusions": ["legs", "feet", "arms", "hands", "paws", "shoes"],
+  "sprite_version_number": 2,
+  "atlas": {"columns": 8, "rows": 11, "cell_width": 192, "cell_height": 208, "width": 1536, "height": 2288},
+  "frame_count": 73,
+  "standard_animations": 9,
+  "look_directions": 16,
+  "validation": {"ok": true, "warnings": [], "transparent_rgb_residue_pixels": 0},
+  "direction_blind_validation": {
+    "ok": true,
+    "hard_cardinals": "pass",
+    "review_required": true,
+    "accepted_warnings": ["045/315 subtle horizontal ambiguity", "157.5/202.5 subtle horizontal ambiguity"]
+  },
+  "continuity": {
+    "ok": true,
+    "review_required": true,
+    "accepted_warnings": ["157.5→180 stronger cardinal emphasis", "337.5→000 stronger cardinal emphasis"]
+  },
+  "visual_qa": "pass",
+  "package": "package/dokkaebi-fire",
+  "final_spritesheet": "final/spritesheet-extended.webp"
+}
