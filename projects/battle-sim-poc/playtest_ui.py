@@ -12,7 +12,7 @@ from battle_sim import ACTION_LABELS, Action, ManualBattleEngine
 NPC_OPTIONS = (
     ("쉬움 · 훈련생 — 고정 순환", "rookie_cycle"),
     ("쉬움 · 초급 방패병 — 방어 혼합", "rookie_guard"),
-    ("쉬움(재조정 예정) · 돌격병 — 공격→공격→회피", "reckless_raider"),
+    ("쉬움(재검증 중) · 돌격병 — 공격→공격→방어", "reckless_raider"),
     ("보통 · 균형병 — 연속 행동 제한", "balanced_soldier"),
     ("보통 · 숙련 방패병 — 방어 적응형", "veteran_guard"),
     ("보통 · 신중 추격자 — 완만한 압박", "cautious_hunter"),

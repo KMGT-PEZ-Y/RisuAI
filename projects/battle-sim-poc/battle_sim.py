@@ -14,7 +14,26 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 import math
 import random
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
+
+from skill_schema import (
+    ActionControlOperation,
+    Condition,
+    ConditionKind,
+    CooldownDecrement,
+    CooldownStart,
+    DeliveryType,
+    DiceModifierOperation,
+    EffectCategory,
+    ResourceChangeOperation,
+    ResultModifierOperation,
+    SkillDefinition,
+    SkillControlOperation,
+    SkillLevel,
+    StatusControlOperation,
+    Target,
+    Timing,
+)
 
 
 class Action(str, Enum):
@@ -146,6 +165,65 @@ class StatusEffect:
     applied_on_match_turn: int
 
 
+@dataclass(frozen=True)
+class OwnedSkill:
+    skill_id: str
+    level: int
+
+
+@dataclass(frozen=True)
+class TurnIntent:
+    actor_id: str
+    base_action: Action
+    active_skill_id: str | None = None
+    target_id: str | None = None
+
+
+@dataclass(frozen=True)
+class IntentValidationIssue:
+    code: str
+    message: str
+
+
+@dataclass(frozen=True)
+class IntentValidationResult:
+    issues: tuple[IntentValidationIssue, ...] = ()
+
+    @property
+    def valid(self) -> bool:
+        return not self.issues
+
+    def messages(self) -> tuple[str, ...]:
+        return tuple(issue.message for issue in self.issues)
+
+
+class InvalidTurnIntent(ValueError):
+    def __init__(self, result: IntentValidationResult):
+        self.result = result
+        super().__init__("; ".join(result.messages()))
+
+
+@dataclass
+class EffectResolutionContext:
+    intents: tuple[TurnIntent, ...]
+    actions: list[Action]
+    raw_dice: list[int | None] = field(default_factory=lambda: [None, None])
+    final_dice: list[int | None] = field(default_factory=lambda: [None, None])
+    dice_result: DiceResult | None = None
+    entry_id: str | None = None
+    deltas: list[dict[str, float]] = field(
+        default_factory=lambda: [
+            {"hp": 0, "stamina": 0, "break_gauge": 0},
+            {"hp": 0, "stamina": 0, "break_gauge": 0},
+        ]
+    )
+    dice_ranges: list[list[tuple[float, float, int, int, dict[str, Any]]]] = field(
+        default_factory=lambda: [[], []]
+    )
+    action_controlled: set[int] = field(default_factory=set)
+    effect_log: list[dict[str, Any]] = field(default_factory=list)
+
+
 @dataclass
 class CharacterState:
     name: str
@@ -162,6 +240,12 @@ class CharacterState:
     is_groggy: bool = False
     is_ko: bool = False
     statuses: list[StatusEffect] = field(default_factory=list)
+    skill_loadout: tuple[OwnedSkill, ...] = ()
+    skill_cooldowns: dict[str, int] = field(default_factory=dict)
+    skill_uses_remaining: dict[str, int | None] = field(default_factory=dict)
+    skill_round_uses_remaining: dict[str, int | None] = field(default_factory=dict)
+    skill_cost_modifiers: dict[str, dict[str, float]] = field(default_factory=dict)
+    next_skill_cost_modifiers: dict[str, float] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -174,6 +258,17 @@ class CharacterState:
             "is_groggy": self.is_groggy,
             "is_ko": self.is_ko,
             "statuses": [asdict(status) for status in self.statuses],
+            "skill_loadout": [asdict(skill) for skill in self.skill_loadout],
+            "skill_cooldowns": dict(self.skill_cooldowns),
+            "skill_uses_remaining": dict(self.skill_uses_remaining),
+            "skill_round_uses_remaining": dict(
+                self.skill_round_uses_remaining
+            ),
+            "skill_cost_modifiers": {
+                skill_id: dict(modifiers)
+                for skill_id, modifiers in self.skill_cost_modifiers.items()
+            },
+            "next_skill_cost_modifiers": dict(self.next_skill_cost_modifiers),
         }
 
 
@@ -274,7 +369,7 @@ def choose_strategy_action(
     if strategy == "reckless_raider":
         if context.own_break_gauge >= 80:
             return Action.DEFEND
-        return (Action.ATTACK, Action.ATTACK, Action.EVADE)[
+        return (Action.ATTACK, Action.ATTACK, Action.DEFEND)[
             len(context.own_history) % 3
         ]
     if strategy == "balanced_soldier":
@@ -728,6 +823,9 @@ class BattleEngine:
         trace_enabled: bool = False,
         player_strategy: str = "random",
         enemy_strategy: str = "random",
+        skill_registry: Mapping[str, SkillDefinition] | None = None,
+        player_skills: Iterable[OwnedSkill] = (),
+        enemy_skills: Iterable[OwnedSkill] = (),
     ) -> None:
         if player_strategy not in STRATEGY_NAMES:
             raise ValueError(f"unknown player strategy: {player_strategy!r}")
@@ -748,8 +846,16 @@ class BattleEngine:
         ] = ([], [])
         self.max_rounds = max_rounds
         self.trace_enabled = trace_enabled
+        self.skill_registry: Mapping[str, SkillDefinition] = (
+            skill_registry if skill_registry is not None else {}
+        )
         self.player = CharacterState("Player")
         self.enemy = CharacterState("Enemy")
+        self._equip_skills(self.player, tuple(player_skills))
+        self._equip_skills(self.enemy, tuple(enemy_skills))
+        self.intent_history: tuple[list[TurnIntent], list[TurnIntent]] = ([], [])
+        self._skills_committed_this_turn: set[tuple[int, str]] = set()
+        self._current_effect_context: EffectResolutionContext | None = None
         self.round_number = 1
         self.turn_in_round = 0
         self.match_turn = 0
@@ -761,6 +867,71 @@ class BattleEngine:
     @property
     def characters(self) -> tuple[CharacterState, CharacterState]:
         return self.player, self.enemy
+
+    @staticmethod
+    def _actor_id(actor_index: int) -> str:
+        return "player" if actor_index == 0 else "enemy"
+
+    @staticmethod
+    def _actor_index(actor_id: str) -> int | None:
+        if actor_id == "player":
+            return 0
+        if actor_id == "enemy":
+            return 1
+        return None
+
+    def _equip_skills(
+        self,
+        character: CharacterState,
+        loadout: tuple[OwnedSkill, ...],
+    ) -> None:
+        seen: set[str] = set()
+        for owned in loadout:
+            if owned.skill_id in seen:
+                raise ValueError(f"duplicate equipped skill: {owned.skill_id!r}")
+            seen.add(owned.skill_id)
+            definition = self.skill_registry.get(owned.skill_id)
+            if definition is None:
+                raise ValueError(f"unknown equipped skill: {owned.skill_id!r}")
+            try:
+                level = definition.level(owned.level)
+            except KeyError as exc:
+                raise ValueError(str(exc)) from exc
+            character.skill_cooldowns[owned.skill_id] = 0
+            character.skill_uses_remaining[owned.skill_id] = (
+                level.usage_limit.per_match
+            )
+            character.skill_round_uses_remaining[owned.skill_id] = (
+                level.usage_limit.per_round
+            )
+        character.skill_loadout = loadout
+
+    def _owned_skill(
+        self, character: CharacterState, skill_id: str
+    ) -> tuple[OwnedSkill, SkillDefinition, SkillLevel] | None:
+        owned = next(
+            (skill for skill in character.skill_loadout if skill.skill_id == skill_id),
+            None,
+        )
+        if owned is None:
+            return None
+        definition = self.skill_registry.get(skill_id)
+        if definition is None:
+            return None
+        return owned, definition, definition.level(owned.level)
+
+    @staticmethod
+    def _effective_skill_cost(
+        character: CharacterState,
+        skill_id: str,
+        resource: str,
+        base_amount: float,
+    ) -> float:
+        persistent = character.skill_cost_modifiers.get(skill_id, {}).get(
+            resource, 0
+        )
+        next_use = character.next_skill_cost_modifiers.get(resource, 0)
+        return max(0, base_amount + persistent + next_use)
 
     def _log(self, event: str, **details: Any) -> None:
         if not self.trace_enabled:
@@ -807,6 +978,691 @@ class BattleEngine:
             self.policy_rngs[actor_index],
         )
 
+    def _choose_intent(self, actor_index: int) -> TurnIntent:
+        """Backward-compatible policy intent; Phase E will add skill choices."""
+        return TurnIntent(
+            actor_id=self._actor_id(actor_index),
+            base_action=self._choose_action(actor_index),
+        )
+
+    def validate_intent(
+        self,
+        intent: TurnIntent,
+        *,
+        upcoming_turn: bool = True,
+    ) -> IntentValidationResult:
+        issues: list[IntentValidationIssue] = []
+        actor_index = self._actor_index(intent.actor_id)
+        if actor_index is None:
+            return IntentValidationResult((IntentValidationIssue(
+                "unknown_actor",
+                f"unknown actor id: {intent.actor_id!r}",
+            ),))
+        actor = self.characters[actor_index]
+        opponent = self.characters[1 - actor_index]
+        if actor.is_down or actor.is_groggy or actor.is_ko:
+            issues.append(IntentValidationIssue(
+                "actor_cannot_act",
+                f"{intent.actor_id} cannot act in the current state",
+            ))
+        if intent.active_skill_id is None:
+            if intent.target_id is not None:
+                issues.append(IntentValidationIssue(
+                    "target_without_skill",
+                    "target_id must be null when no active skill is selected",
+                ))
+            return IntentValidationResult(tuple(issues))
+
+        resolved = self._owned_skill(actor, intent.active_skill_id)
+        if resolved is None:
+            issues.append(IntentValidationIssue(
+                "skill_not_owned",
+                f"{intent.actor_id} does not own skill {intent.active_skill_id!r}",
+            ))
+            return IntentValidationResult(tuple(issues))
+        _, definition, level = resolved
+
+        if intent.base_action.value not in level.requirements.allowed_actions:
+            issues.append(IntentValidationIssue(
+                "action_not_allowed",
+                f"skill {definition.skill_id!r} cannot be used with "
+                f"action {intent.base_action.value!r}",
+            ))
+        issues.extend(self._validate_intent_target(
+            intent, actor_index, definition.targeting.type,
+            definition.targeting.selection_required,
+        ))
+        if level.requirements.condition is not None and not self._evaluate_condition(
+            level.requirements.condition,
+            actor_index,
+            intent,
+            upcoming_turn=upcoming_turn,
+        ):
+            issues.append(IntentValidationIssue(
+                "requirements_not_met",
+                f"requirements are not met for skill {definition.skill_id!r}",
+            ))
+        for cost in level.costs:
+            current = getattr(actor, cost.resource.value)
+            effective_cost = self._effective_skill_cost(
+                actor,
+                definition.skill_id,
+                cost.resource.value,
+                cost.amount,
+            )
+            if (
+                current < effective_cost
+                or current - effective_cost < cost.minimum_remaining
+            ):
+                issues.append(IntentValidationIssue(
+                    "insufficient_resource",
+                    f"insufficient {cost.resource.value} for skill "
+                    f"{definition.skill_id!r}",
+                ))
+        if actor.skill_cooldowns.get(definition.skill_id, 0) > 0:
+            issues.append(IntentValidationIssue(
+                "skill_on_cooldown",
+                f"skill {definition.skill_id!r} has "
+                f"{actor.skill_cooldowns[definition.skill_id]} cooldown turns remaining",
+            ))
+        match_uses = actor.skill_uses_remaining.get(definition.skill_id)
+        if match_uses is not None and match_uses <= 0:
+            issues.append(IntentValidationIssue(
+                "match_uses_exhausted",
+                f"skill {definition.skill_id!r} has no match uses remaining",
+            ))
+        round_uses = actor.skill_round_uses_remaining.get(definition.skill_id)
+        if round_uses is not None and round_uses <= 0:
+            issues.append(IntentValidationIssue(
+                "round_uses_exhausted",
+                f"skill {definition.skill_id!r} has no round uses remaining",
+            ))
+        return IntentValidationResult(tuple(issues))
+
+    def _validate_intent_target(
+        self,
+        intent: TurnIntent,
+        actor_index: int,
+        target_type: Target,
+        selection_required: bool,
+    ) -> list[IntentValidationIssue]:
+        actor_id = self._actor_id(actor_index)
+        opponent_id = self._actor_id(1 - actor_index)
+        expected = {
+            Target.SELF: actor_id,
+            Target.OPPONENT: opponent_id,
+            Target.BOTH: "both",
+        }[target_type]
+        if intent.target_id is None:
+            if selection_required:
+                return [IntentValidationIssue(
+                    "target_required",
+                    f"skill {intent.active_skill_id!r} requires a target",
+                )]
+            return []
+        if intent.target_id != expected:
+            return [IntentValidationIssue(
+                "invalid_target",
+                f"skill {intent.active_skill_id!r} expects target {expected!r}, "
+                f"got {intent.target_id!r}",
+            )]
+        return []
+
+    def _condition_subject(
+        self, actor_index: int, subject: str
+    ) -> tuple[int, CharacterState]:
+        index = actor_index if subject == "self" else 1 - actor_index
+        return index, self.characters[index]
+
+    def _evaluate_condition(
+        self,
+        condition: Condition,
+        actor_index: int,
+        intent: TurnIntent,
+        *,
+        upcoming_turn: bool,
+    ) -> bool:
+        if condition.kind == ConditionKind.ALL:
+            return all(
+                self._evaluate_condition(
+                    child, actor_index, intent, upcoming_turn=upcoming_turn
+                )
+                for child in condition.children
+            )
+        if condition.kind == ConditionKind.ANY:
+            return any(
+                self._evaluate_condition(
+                    child, actor_index, intent, upcoming_turn=upcoming_turn
+                )
+                for child in condition.children
+            )
+        if condition.kind == ConditionKind.NOT:
+            return not self._evaluate_condition(
+                condition.children[0],
+                actor_index,
+                intent,
+                upcoming_turn=upcoming_turn,
+            )
+
+        predicate = condition.predicate
+        arguments = condition.arguments
+        subject_index, subject = self._condition_subject(
+            actor_index, arguments.get("subject", "self")
+        )
+        if predicate == "action_in":
+            return intent.base_action.value in arguments["values"]
+        if predicate == "previous_action_is":
+            history = self.action_history[subject_index]
+            return bool(history) and history[-1].value == arguments["value"]
+        if predicate == "recent_action_count_at_least":
+            recent = self.action_history[subject_index][-arguments["window"]:]
+            return sum(
+                action.value == arguments["action"] for action in recent
+            ) >= arguments["value"]
+        if predicate and predicate.startswith("resource_"):
+            current = getattr(subject, arguments["resource"])
+            if "_ratio_" in predicate:
+                maximum = getattr(subject, f"max_{arguments['resource']}")
+                current = current / maximum if maximum else 0
+            if predicate.endswith("_at_least"):
+                return current >= arguments["value"]
+            return current <= arguments["value"]
+        if predicate == "round_at_least":
+            return self.round_number >= arguments["value"]
+        if predicate == "round_at_most":
+            return self.round_number <= arguments["value"]
+        if predicate == "turn_in_round_is":
+            evaluated_turn = self.turn_in_round + (1 if upcoming_turn else 0)
+            return evaluated_turn == arguments["value"]
+        if predicate == "down_count_at_least":
+            return subject.down_count >= arguments["value"]
+        if predicate in {"is_groggy", "is_down", "is_ko"}:
+            return getattr(subject, predicate) == arguments["value"]
+        if predicate in {"status_present", "status_absent"}:
+            present = any(
+                status.name == arguments["status_id"] for status in subject.statuses
+            )
+            return present if predicate == "status_present" else not present
+        if predicate == "status_count_at_least":
+            return len(subject.statuses) >= arguments["value"]
+        if predicate == "skill_ready":
+            skill_id = arguments["skill_id"]
+            return (
+                self._owned_skill(subject, skill_id) is not None
+                and subject.skill_cooldowns.get(skill_id, 0) == 0
+            )
+        if predicate == "skill_uses_remaining_at_least":
+            remaining = subject.skill_uses_remaining.get(arguments["skill_id"])
+            return remaining is None or remaining >= arguments["value"]
+        raise RuntimeError(f"unsupported requirement predicate: {predicate!r}")
+
+    def commit_intents(
+        self,
+        intents: Iterable[TurnIntent],
+        *,
+        upcoming_turn: bool = True,
+    ) -> None:
+        """Validate every intent before atomically consuming any skill state."""
+        intents = tuple(intents)
+        actor_ids = [intent.actor_id for intent in intents]
+        if len(actor_ids) != len(set(actor_ids)):
+            raise InvalidTurnIntent(IntentValidationResult((IntentValidationIssue(
+                "duplicate_actor_intent",
+                "only one intent per actor may be committed in a turn",
+            ),)))
+        validations = tuple(
+            self.validate_intent(intent, upcoming_turn=upcoming_turn)
+            for intent in intents
+        )
+        issues = tuple(
+            issue for validation in validations for issue in validation.issues
+        )
+        if issues:
+            raise InvalidTurnIntent(IntentValidationResult(issues))
+        for intent in intents:
+            if intent.active_skill_id is None:
+                continue
+            actor_index = self._actor_index(intent.actor_id)
+            assert actor_index is not None
+            actor = self.characters[actor_index]
+            resolved = self._owned_skill(actor, intent.active_skill_id)
+            assert resolved is not None
+            _, definition, level = resolved
+            for cost in level.costs:
+                current = getattr(actor, cost.resource.value)
+                effective_cost = self._effective_skill_cost(
+                    actor,
+                    definition.skill_id,
+                    cost.resource.value,
+                    cost.amount,
+                )
+                setattr(actor, cost.resource.value, current - effective_cost)
+            actor.next_skill_cost_modifiers.clear()
+            if actor.skill_uses_remaining[definition.skill_id] is not None:
+                actor.skill_uses_remaining[definition.skill_id] -= 1
+            if actor.skill_round_uses_remaining[definition.skill_id] is not None:
+                actor.skill_round_uses_remaining[definition.skill_id] -= 1
+            if level.cooldown.starts == CooldownStart.ON_SKILL_COMMIT:
+                actor.skill_cooldowns[definition.skill_id] = level.cooldown.turns
+            self._skills_committed_this_turn.add(
+                (actor_index, definition.skill_id)
+            )
+
+    def _finalize_intent_cooldowns(self, intents: Iterable[TurnIntent]) -> None:
+        for intent in intents:
+            if intent.active_skill_id is None:
+                continue
+            actor_index = self._actor_index(intent.actor_id)
+            assert actor_index is not None
+            actor = self.characters[actor_index]
+            resolved = self._owned_skill(actor, intent.active_skill_id)
+            assert resolved is not None
+            _, definition, level = resolved
+            if level.cooldown.starts == CooldownStart.AFTER_RESOLUTION:
+                actor.skill_cooldowns[definition.skill_id] = level.cooldown.turns
+
+    def _tick_skill_cooldowns(self) -> None:
+        for actor_index, actor in enumerate(self.characters):
+            opponent = self.characters[1 - actor_index]
+            actionable = (
+                not actor.is_down
+                and not actor.is_groggy
+                and not actor.is_ko
+                and not opponent.is_down
+            )
+            for owned in actor.skill_loadout:
+                remaining = actor.skill_cooldowns.get(owned.skill_id, 0)
+                if remaining <= 0:
+                    continue
+                if (actor_index, owned.skill_id) in self._skills_committed_this_turn:
+                    continue
+                resolved = self._owned_skill(actor, owned.skill_id)
+                assert resolved is not None
+                _, _, level = resolved
+                if level.cooldown.decrements == CooldownDecrement.OWNER_TURN:
+                    actor.skill_cooldowns[owned.skill_id] = remaining - 1
+                elif (
+                    level.cooldown.decrements
+                    == CooldownDecrement.OWNER_ACTIONABLE_TURN
+                    and actionable
+                ):
+                    actor.skill_cooldowns[owned.skill_id] = remaining - 1
+
+    @staticmethod
+    def _comparison_matches(left: float, operation: str, right: float) -> bool:
+        return {
+            "equal": left == right,
+            "not_equal": left != right,
+            "less_than": left < right,
+            "less_than_or_equal": left <= right,
+            "greater_than": left > right,
+            "greater_than_or_equal": left >= right,
+        }[operation]
+
+    def _evaluate_effect_condition(
+        self,
+        condition: Condition,
+        actor_index: int,
+        intent: TurnIntent,
+        context: EffectResolutionContext,
+    ) -> bool:
+        if condition.kind == ConditionKind.ALL:
+            return all(
+                self._evaluate_effect_condition(child, actor_index, intent, context)
+                for child in condition.children
+            )
+        if condition.kind == ConditionKind.ANY:
+            return any(
+                self._evaluate_effect_condition(child, actor_index, intent, context)
+                for child in condition.children
+            )
+        if condition.kind == ConditionKind.NOT:
+            return not self._evaluate_effect_condition(
+                condition.children[0], actor_index, intent, context
+            )
+
+        predicate = condition.predicate
+        arguments = condition.arguments
+        subject_index = (
+            actor_index if arguments.get("subject", "self") == "self"
+            else 1 - actor_index
+        )
+        if predicate == "action_in":
+            return context.actions[subject_index].value in arguments["values"]
+        if predicate == "raw_die_is":
+            return context.raw_dice[subject_index] == arguments["value"]
+        if predicate in {"final_die_at_least", "final_die_at_most"}:
+            value = context.final_dice[subject_index]
+            if value is None:
+                return False
+            if predicate.endswith("at_least"):
+                return value >= arguments["value"]
+            return value <= arguments["value"]
+        if predicate == "dice_result_is":
+            if context.dice_result is None:
+                return False
+            actor_result = context.dice_result
+            if actor_index == 1:
+                actor_result = {
+                    DiceResult.WIN: DiceResult.LOSE,
+                    DiceResult.DRAW: DiceResult.DRAW,
+                    DiceResult.LOSE: DiceResult.WIN,
+                }[actor_result]
+            return actor_result.value == arguments["value"]
+        if predicate == "result_entry_is":
+            return context.entry_id == arguments["value"]
+        if predicate == "result_delta_is":
+            value = context.deltas[subject_index][arguments["resource"]]
+            return self._comparison_matches(
+                value, arguments["comparison"], arguments["value"]
+            )
+        projected_intent = TurnIntent(
+            intent.actor_id,
+            context.actions[actor_index],
+            intent.active_skill_id,
+            intent.target_id,
+        )
+        return self._evaluate_condition(
+            condition,
+            actor_index,
+            projected_intent,
+            upcoming_turn=False,
+        )
+
+    def _application_targets(
+        self, target: Target, actor_index: int
+    ) -> tuple[int, ...]:
+        if target == Target.SELF:
+            return (actor_index,)
+        if target == Target.OPPONENT:
+            return (1 - actor_index,)
+        return (0, 1)
+
+    def _dispatch_timing(
+        self,
+        timing: Timing,
+        context: EffectResolutionContext,
+    ) -> None:
+        pending: list[tuple[int, int, int, TurnIntent, Any]] = []
+        for intent in context.intents:
+            if intent.active_skill_id is None:
+                continue
+            actor_index = self._actor_index(intent.actor_id)
+            assert actor_index is not None
+            resolved = self._owned_skill(
+                self.characters[actor_index], intent.active_skill_id
+            )
+            assert resolved is not None
+            _, _, level = resolved
+            for application_index, application in enumerate(level.applications):
+                if (
+                    application.timing == timing
+                    and application.delivery.type == DeliveryType.IMMEDIATE
+                ):
+                    pending.append((
+                        -application.priority,
+                        actor_index,
+                        application_index,
+                        intent,
+                        application,
+                    ))
+        for _, actor_index, _, intent, application in sorted(pending):
+            if application.condition is not None and not self._evaluate_effect_condition(
+                application.condition, actor_index, intent, context
+            ):
+                context.effect_log.append({
+                    "timing": timing.value,
+                    "actor": intent.actor_id,
+                    "skill_id": intent.active_skill_id,
+                    "application_id": application.application_id,
+                    "applied": False,
+                    "reason": "condition_not_met",
+                })
+                continue
+            for target_index in self._application_targets(
+                application.target, actor_index
+            ):
+                for effect_index, effect in enumerate(application.effects):
+                    self._execute_content_effect(
+                        context,
+                        timing,
+                        actor_index,
+                        target_index,
+                        intent,
+                        application,
+                        effect,
+                        effect_index,
+                    )
+
+    def _effect_log_entry(
+        self,
+        timing: Timing,
+        actor_index: int,
+        target_index: int,
+        intent: TurnIntent,
+        application: Any,
+        effect: Any,
+    ) -> dict[str, Any]:
+        return {
+            "timing": timing.value,
+            "actor": self._actor_id(actor_index),
+            "target": self._actor_id(target_index),
+            "skill_id": intent.active_skill_id,
+            "application_id": application.application_id,
+            "category": effect.category.value,
+            "operation": effect.operation.value,
+            "priority": application.priority,
+            "applied": True,
+        }
+
+    def _execute_content_effect(
+        self,
+        context: EffectResolutionContext,
+        timing: Timing,
+        actor_index: int,
+        target_index: int,
+        intent: TurnIntent,
+        application: Any,
+        effect: Any,
+        effect_index: int,
+    ) -> None:
+        log = self._effect_log_entry(
+            timing, actor_index, target_index, intent, application, effect
+        )
+        parameters = effect.parameters
+        target = self.characters[target_index]
+
+        if effect.category == EffectCategory.RESOURCE_CHANGE:
+            resource = parameters["resource"]
+            before = getattr(target, resource)
+            maximum = getattr(target, f"max_{resource}")
+            value = parameters["value"]
+            if effect.operation == ResourceChangeOperation.ADD:
+                after = before + value
+            elif effect.operation == ResourceChangeOperation.SET:
+                after = value
+            elif effect.operation == ResourceChangeOperation.ADD_PERCENT_OF_MAX:
+                after = before + maximum * value
+            else:
+                after = maximum * value
+            after = min(maximum, max(0, math.floor(after)))
+            setattr(target, resource, after)
+            log.update(resource=resource, before=before, after=after)
+
+        elif effect.category == EffectCategory.RESULT_MODIFIER:
+            resource = parameters["resource"]
+            before = context.deltas[target_index][resource]
+            polarity = parameters["polarity"]
+            if polarity in {"damage", "decrease"}:
+                sign = -1
+            elif polarity in {"recovery", "increase"}:
+                sign = 1
+            else:
+                sign = -1 if before < 0 else 1
+            matches = (
+                polarity == "any"
+                or before == 0
+                or (sign < 0 and before < 0)
+                or (sign > 0 and before > 0)
+            )
+            if not matches:
+                log.update(applied=False, reason="polarity_not_matched", before=before)
+            else:
+                value = parameters.get("value", 0)
+                if effect.operation == ResultModifierOperation.ADD:
+                    after = before + sign * value
+                elif effect.operation == ResultModifierOperation.MULTIPLY:
+                    after = before * value
+                elif effect.operation == ResultModifierOperation.MINIMUM:
+                    after = sign * max(abs(before), value)
+                elif effect.operation == ResultModifierOperation.MAXIMUM:
+                    after = sign * min(abs(before), value)
+                else:
+                    after = 0
+                context.deltas[target_index][resource] = after
+                log.update(resource=resource, before=before, after=after)
+
+        elif effect.category == EffectCategory.DICE_MODIFIER:
+            if effect.operation == DiceModifierOperation.SET_MINIMUM:
+                minimum, maximum = parameters["value"], 6
+            else:
+                minimum, maximum = 1, parameters["value"]
+            context.dice_ranges[target_index].append((
+                minimum,
+                maximum,
+                application.priority,
+                effect_index,
+                log,
+            ))
+            log.update(range=[minimum, maximum], pending=True)
+
+        elif effect.category == EffectCategory.ACTION_CONTROL:
+            before = context.actions[target_index]
+            if target_index in context.action_controlled:
+                log.update(applied=False, reason="lower_priority_action_control")
+            else:
+                if effect.operation == ActionControlOperation.FORCE:
+                    after = Action(parameters["action"])
+                elif effect.operation == ActionControlOperation.ALLOW_ONLY:
+                    allowed = tuple(Action(value) for value in parameters["actions"])
+                    after = before if before in allowed else allowed[0]
+                else:
+                    forbidden = {Action(value) for value in parameters["actions"]}
+                    after = before
+                    if before in forbidden:
+                        after = next(action for action in Action if action not in forbidden)
+                context.actions[target_index] = after
+                context.action_controlled.add(target_index)
+                log.update(before=before.value, after=after.value)
+
+        elif effect.category == EffectCategory.STATUS_CONTROL:
+            selector = parameters["selector"]
+            selected = list(range(len(target.statuses)))
+            if selector["type"] == "status_id":
+                selected = [
+                    index for index in selected
+                    if target.statuses[index].name == selector["value"]
+                ]
+            order = selector.get("order", "oldest")
+            if order == "newest":
+                selected.reverse()
+            if effect.operation == StatusControlOperation.REMOVE:
+                selected = selected[:parameters.get("count", 1)]
+                before = len(target.statuses)
+                removed = set(selected)
+                target.statuses = [
+                    status for index, status in enumerate(target.statuses)
+                    if index not in removed
+                ]
+                log.update(before=before, after=len(target.statuses))
+            else:
+                before = [target.statuses[index].remaining_turns for index in selected]
+                for index in selected:
+                    target.statuses[index].remaining_turns += parameters["value"]
+                target.statuses = [
+                    status for status in target.statuses if status.remaining_turns > 0
+                ]
+                log.update(before=before, after=[
+                    status.remaining_turns for status in target.statuses
+                ])
+
+        elif effect.category == EffectCategory.SKILL_CONTROL:
+            selector = parameters["selector"]
+            selected_skill_id = selector.get("value")
+            if (
+                selector["type"] == "skill_id"
+                and self._owned_skill(target, selected_skill_id) is None
+            ):
+                log.update(applied=False, reason="skill_not_owned")
+                context.effect_log.append(log)
+                return
+            if effect.operation == SkillControlOperation.MODIFY_COST:
+                resource = parameters["resource"]
+                if selector["type"] == "next_used_skill":
+                    before = target.next_skill_cost_modifiers.get(resource, 0)
+                    target.next_skill_cost_modifiers[resource] = (
+                        before + parameters["value"]
+                    )
+                    after = target.next_skill_cost_modifiers[resource]
+                else:
+                    modifiers = target.skill_cost_modifiers.setdefault(
+                        selected_skill_id, {}
+                    )
+                    before = modifiers.get(resource, 0)
+                    modifiers[resource] = before + parameters["value"]
+                    after = modifiers[resource]
+                log.update(resource=resource, before=before, after=after)
+            elif effect.operation == SkillControlOperation.CHANGE_COOLDOWN:
+                before = target.skill_cooldowns.get(selected_skill_id, 0)
+                after = max(0, before + int(parameters["value"]))
+                target.skill_cooldowns[selected_skill_id] = after
+                log.update(before=before, after=after)
+            else:
+                before = target.skill_uses_remaining.get(selected_skill_id)
+                if before is None:
+                    after = None
+                else:
+                    after = max(0, before + int(parameters["value"]))
+                    target.skill_uses_remaining[selected_skill_id] = after
+                log.update(before=before, after=after)
+
+        context.effect_log.append(log)
+
+    def _finalize_dice(self, context: EffectResolutionContext) -> None:
+        for target_index in range(2):
+            raw = context.raw_dice[target_index]
+            if raw is None:
+                continue
+            candidates = context.dice_ranges[target_index]
+            if not candidates:
+                context.final_dice[target_index] = raw
+                continue
+            chosen = max(
+                candidates,
+                key=lambda item: (item[0], -item[1], item[2], -item[3]),
+            )
+            minimum, maximum, _, _, chosen_log = chosen
+            if minimum > maximum:
+                final = minimum
+            else:
+                final = min(maximum, max(minimum, raw))
+            context.final_dice[target_index] = int(final)
+            for candidate in candidates:
+                candidate_log = candidate[4]
+                candidate_log["pending"] = False
+                candidate_log["raw_die"] = raw
+                candidate_log["final_die"] = int(final)
+                candidate_log["selected"] = candidate is chosen
+
+    @staticmethod
+    def _delta_from_context(context: EffectResolutionContext, index: int) -> Delta:
+        values = context.deltas[index]
+        return Delta(
+            math.floor(values["hp"]),
+            math.floor(values["stamina"]),
+            math.floor(values["break_gauge"]),
+        )
+
     def run(self) -> MatchResult:
         while self.outcome is None:
             if self.round_number > self.max_rounds:
@@ -832,6 +1688,8 @@ class BattleEngine:
 
         self.match_turn += 1
         self.turn_in_round += 1
+        self._skills_committed_this_turn.clear()
+        self._current_effect_context = None
         before = [character.snapshot() for character in self.characters]
 
         groggy_count = sum(character.is_groggy for character in self.characters)
@@ -844,46 +1702,108 @@ class BattleEngine:
         else:
             resolution = self._resolve_normal_turn()
 
+        if self._current_effect_context is not None and self.turn_in_round >= 8:
+            self._dispatch_timing(
+                Timing.ON_ROUND_END, self._current_effect_context
+            )
+            self._after_resource_change()
+            resolution["effects"] = list(
+                self._current_effect_context.effect_log
+            )
+        self._tick_skill_cooldowns()
         self._tick_active_statuses()
         after = [character.snapshot() for character in self.characters]
         self._log("turn", resolution=resolution, before=before, after=after)
 
         if self.outcome is None and self.turn_in_round >= 8:
-            self._end_round()
+            self._end_round(self._current_effect_context)
 
     def _resolve_normal_turn(self) -> dict[str, Any]:
         # Both contexts are built before either current action is recorded, so
         # neither strategy can inspect the opponent's simultaneous choice.
-        player_action = self._choose_action(0)
-        enemy_action = self._choose_action(1)
+        player_intent = self._choose_intent(0)
+        enemy_intent = self._choose_intent(1)
+        intents = (player_intent, enemy_intent)
+        self.commit_intents(intents, upcoming_turn=False)
+        self.intent_history[0].append(player_intent)
+        self.intent_history[1].append(enemy_intent)
+        context = EffectResolutionContext(
+            intents=intents,
+            actions=[player_intent.base_action, enemy_intent.base_action],
+        )
+        self._current_effect_context = context
+        self._dispatch_timing(Timing.ON_SKILL_COMMIT, context)
+        self._dispatch_timing(Timing.BEFORE_ACTION_REVEAL, context)
+        player_action, enemy_action = context.actions
         self.action_history[0].append(player_action)
         self.action_history[1].append(enemy_action)
+        self._dispatch_timing(Timing.BEFORE_ROLL, context)
         player_die = self.rng.randint(1, 6)
         enemy_die = self.rng.randint(1, 6)
-        dice_result = compare_dice(player_die, enemy_die)
+        context.raw_dice = [player_die, enemy_die]
+        context.final_dice = [player_die, enemy_die]
+        self._dispatch_timing(Timing.AFTER_RAW_ROLL, context)
+        self._dispatch_timing(Timing.BEFORE_DICE_COMPARE, context)
+        self._finalize_dice(context)
+        final_player_die = context.final_dice[0]
+        final_enemy_die = context.final_dice[1]
+        assert final_player_die is not None and final_enemy_die is not None
+        dice_result = compare_dice(final_player_die, final_enemy_die)
+        context.dice_result = dice_result
         entry = RESULT_TABLE[(player_action, enemy_action, dice_result)]
+        context.entry_id = entry.entry_id
+        context.deltas = [
+            {
+                "hp": entry.player.hp,
+                "stamina": entry.player.stamina,
+                "break_gauge": entry.player.break_gauge,
+            },
+            {
+                "hp": entry.enemy.hp,
+                "stamina": entry.enemy.stamina,
+                "break_gauge": entry.enemy.break_gauge,
+            },
+        ]
+        self._dispatch_timing(Timing.BEFORE_RESULT_APPLY, context)
         self.exchange_history[0].append(
-            StrategyExchange(player_action, enemy_action, player_die, enemy_die)
+            StrategyExchange(
+                player_action, enemy_action, final_player_die, final_enemy_die
+            )
         )
         self.exchange_history[1].append(
-            StrategyExchange(enemy_action, player_action, enemy_die, player_die)
+            StrategyExchange(
+                enemy_action, player_action, final_enemy_die, final_player_die
+            )
         )
 
         self.metrics.action_counts[f"player:{player_action.value}"] += 1
         self.metrics.action_counts[f"enemy:{enemy_action.value}"] += 1
         self.metrics.table_entry_counts[entry.entry_id] += 1
 
-        apply_delta(self.player, entry.player)
-        apply_delta(self.enemy, entry.enemy)
+        applied_player_delta = self._delta_from_context(context, 0)
+        applied_enemy_delta = self._delta_from_context(context, 1)
+        apply_delta(self.player, applied_player_delta)
+        apply_delta(self.enemy, applied_enemy_delta)
+        self._dispatch_timing(Timing.AFTER_RESULT_APPLY, context)
         self._after_resource_change()
+        self._finalize_intent_cooldowns(intents)
         return {
             "kind": "normal",
             "player_action": player_action.value,
             "enemy_action": enemy_action.value,
+            "player_skill": player_intent.active_skill_id,
+            "enemy_skill": enemy_intent.active_skill_id,
             "player_die": player_die,
             "enemy_die": enemy_die,
+            "player_final_die": final_player_die,
+            "enemy_final_die": final_enemy_die,
             "dice_result": dice_result.value,
             "entry_id": entry.entry_id,
+            "base_player_delta": asdict(entry.player),
+            "base_enemy_delta": asdict(entry.enemy),
+            "applied_player_delta": asdict(applied_player_delta),
+            "applied_enemy_delta": asdict(applied_enemy_delta),
+            "effects": list(context.effect_log),
         }
 
     def _resolve_groggy_turn(self) -> dict[str, Any]:
@@ -899,24 +1819,56 @@ class BattleEngine:
             target = self.player
             actor_index = 1
 
-        action = self._choose_action(actor_index)
+        intent = self._choose_intent(actor_index)
+        self.commit_intents((intent,), upcoming_turn=False)
+        self.intent_history[actor_index].append(intent)
+        context = EffectResolutionContext(
+            intents=(intent,),
+            actions=[Action.ATTACK, Action.ATTACK],
+        )
+        self._current_effect_context = context
+        context.actions[actor_index] = intent.base_action
+        self._dispatch_timing(Timing.ON_SKILL_COMMIT, context)
+        self._dispatch_timing(Timing.BEFORE_ACTION_REVEAL, context)
+        action = context.actions[actor_index]
         self.action_history[actor_index].append(action)
         entry = GROGGY_TABLE[action]
+        context.entry_id = entry.entry_id
+        actor_delta = {
+            "hp": entry.player.hp,
+            "stamina": entry.player.stamina,
+            "break_gauge": entry.player.break_gauge,
+        }
+        target_delta = {
+            "hp": entry.enemy.hp,
+            "stamina": entry.enemy.stamina,
+            "break_gauge": entry.enemy.break_gauge,
+        }
+        context.deltas[actor_index] = actor_delta
+        context.deltas[1 - actor_index] = target_delta
+        self._dispatch_timing(Timing.BEFORE_RESULT_APPLY, context)
         self.metrics.action_counts[
             f"{'player' if actor_index == 0 else 'enemy'}:{action.value}"
         ] += 1
         self.metrics.table_entry_counts[entry.entry_id] += 1
 
-        # GROGGY_TABLE is stored from actor/target perspective.
-        apply_delta(actor, entry.player)
-        apply_delta(target, entry.enemy)
+        applied_actor_delta = self._delta_from_context(context, actor_index)
+        applied_target_delta = self._delta_from_context(context, 1 - actor_index)
+        apply_delta(actor, applied_actor_delta)
+        apply_delta(target, applied_target_delta)
+        self._dispatch_timing(Timing.AFTER_RESULT_APPLY, context)
         self._after_resource_change()
+        self._finalize_intent_cooldowns((intent,))
         return {
             "kind": "groggy",
             "actor": actor.name,
             "target": target.name,
             "action": action.value,
+            "skill": intent.active_skill_id,
             "entry_id": entry.entry_id,
+            "applied_actor_delta": asdict(applied_actor_delta),
+            "applied_target_delta": asdict(applied_target_delta),
+            "effects": list(context.effect_log),
         }
 
     def _resolve_down_wait_turn(self) -> dict[str, Any]:
@@ -1006,7 +1958,9 @@ class BattleEngine:
                     kept.append(status)
             character.statuses = kept
 
-    def _end_round(self) -> None:
+    def _end_round(
+        self, context: EffectResolutionContext | None = None
+    ) -> None:
         interval_before = [character.snapshot() for character in self.characters]
         # Any non-KO downed character rises immediately before interval recovery.
         for character in self.characters:
@@ -1032,11 +1986,32 @@ class BattleEngine:
             character.statuses = [
                 status for status in character.statuses if status.remaining_turns > 0
             ]
+            for owned in character.skill_loadout:
+                resolved = self._owned_skill(character, owned.skill_id)
+                assert resolved is not None
+                _, _, level = resolved
+                if (
+                    level.cooldown.decrements == CooldownDecrement.ROUND_END
+                    and character.skill_cooldowns[owned.skill_id] > 0
+                ):
+                    character.skill_cooldowns[owned.skill_id] -= 1
+                character.skill_round_uses_remaining[owned.skill_id] = (
+                    level.usage_limit.per_round
+                )
+
+        if context is not None:
+            effect_start = len(context.effect_log)
+            self._dispatch_timing(Timing.ON_INTERVAL, context)
+            self._after_resource_change()
+            interval_effects = list(context.effect_log[effect_start:])
+        else:
+            interval_effects = []
 
         self._log(
             "interval",
             before=interval_before,
             after=[character.snapshot() for character in self.characters],
+            effects=interval_effects,
         )
         self.round_number += 1
         self.turn_in_round = 0
@@ -1052,6 +2027,9 @@ class ManualBattleEngine(BattleEngine):
         enemy_strategy: str,
         max_rounds: int = 100,
         trace_enabled: bool = True,
+        skill_registry: Mapping[str, SkillDefinition] | None = None,
+        player_skills: Iterable[OwnedSkill] = (),
+        enemy_skills: Iterable[OwnedSkill] = (),
     ) -> None:
         super().__init__(
             seed,
@@ -1060,8 +2038,12 @@ class ManualBattleEngine(BattleEngine):
             # The adapter intercepts Player decisions before this fallback is used.
             player_strategy="random",
             enemy_strategy=enemy_strategy,
+            skill_registry=skill_registry,
+            player_skills=player_skills,
+            enemy_skills=enemy_skills,
         )
         self._submitted_player_action: Action | None = None
+        self._submitted_player_intent: TurnIntent | None = None
 
     @property
     def player_can_choose(self) -> bool:
@@ -1080,13 +2062,34 @@ class ManualBattleEngine(BattleEngine):
             return self._submitted_player_action
         return super()._choose_action(actor_index)
 
+    def _choose_intent(self, actor_index: int) -> TurnIntent:
+        if actor_index == 0:
+            if self._submitted_player_intent is not None:
+                return self._submitted_player_intent
+            if self._submitted_player_action is None:
+                raise RuntimeError("a Player intent must be submitted for this turn")
+        return super()._choose_intent(actor_index)
+
     def submit_player_action(self, action: Action | str) -> None:
+        self.submit_player_intent(TurnIntent("player", Action(action)))
+
+    def submit_player_intent(self, intent: TurnIntent) -> None:
         if not self.player_can_choose:
             raise RuntimeError("the Player cannot choose an action in the current state")
-        self._submitted_player_action = Action(action)
+        if intent.actor_id != "player":
+            raise InvalidTurnIntent(IntentValidationResult((IntentValidationIssue(
+                "actor_mismatch",
+                "manual Player intent must use actor_id 'player'",
+            ),)))
+        validation = self.validate_intent(intent)
+        if not validation.valid:
+            raise InvalidTurnIntent(validation)
+        self._submitted_player_intent = intent
+        self._submitted_player_action = intent.base_action
         try:
             self.play_turn()
         finally:
+            self._submitted_player_intent = None
             self._submitted_player_action = None
 
     def advance_forced_turn(self) -> None:

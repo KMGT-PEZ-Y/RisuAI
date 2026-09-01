@@ -228,6 +228,18 @@ class BatchTests(unittest.TestCase):
         for strategies in NPC_STRATEGIES_BY_DIFFICULTY.values():
             self.assertEqual(len(strategies), 3)
 
+    def test_reckless_raider_uses_attack_attack_defend_pattern(self) -> None:
+        engine = BattleEngine(106, enemy_strategy="reckless_raider")
+        expected = (Action.ATTACK, Action.ATTACK, Action.DEFEND)
+        observed = []
+        for action in expected:
+            observed.append(engine._choose_action(1))
+            engine.action_history[1].append(action)
+        self.assertEqual(tuple(observed), expected)
+
+        engine.enemy.break_gauge = 80
+        self.assertEqual(engine._choose_action(1), Action.DEFEND)
+
     def test_rectangular_strategy_grid_contains_every_case(self) -> None:
         enemies = [
             strategy

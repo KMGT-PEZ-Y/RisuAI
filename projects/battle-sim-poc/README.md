@@ -1,6 +1,6 @@
 # Battle Simulator POC
 
-`ROUND_TURN_BATTLE_POC_RULEBOOK.md`와 `BASIC_RESULT_TABLE_DRAFT_V0.1.md`를 실행 가능한 형태로 옮긴 표준 라이브러리 기반 Python 테스트베드다. 현재 무스킬 1 대 1 코어 전투, 독립 행동 정책, 전략 매트릭스와 난이도별 NPC 12종 실험까지 구현되어 있다. 외부 패키지는 필요하지 않는다.
+`ROUND_TURN_BATTLE_POC_RULEBOOK.md`와 `BASIC_RESULT_TABLE_DRAFT_V0.1.md`를 실행 가능한 형태로 옮긴 표준 라이브러리 기반 Python 테스트베드다. 현재 무스킬 1 대 1 코어 전투, 독립 행동 정책, 전략 매트릭스, 난이도별 NPC 12종 실험과 액티브 스킬 즉시 효과 실행기까지 구현되어 있다. 외부 패키지는 필요하지 않는다.
 
 현재 진행상황, 최신 실험 결과, 알려진 문제와 다음 작업 순서는 `BATTLE_SIM_POC_PROGRESS.md`를 기준으로 한다.
 
@@ -9,9 +9,15 @@
 - 완료: 27+3 결과표, 1 대 1 무스킬 엔진, 라운드·그로기·다운·KO, 시드 재현, 전략 프레임워크
 - 완료: 표준 Player 정책 8종 × NPC 정책 12종의 96개 케이스 실험
 - 완료: Tkinter 기반 수동 플레이테스트 UI
-- 검증: 자동 테스트 22개 통과
-- 미구현: 액티브·패시브 스킬, 실제 상태이상 효과, 다인 교대, Lua 프론트엔드 이식
-- 다음 작업: `reckless_raider`와 `regret_duelist` 난이도 재보정 후 액티브 스킬 스키마 설계
+- 검증: 무스킬 전투 23개 + 스키마 14개 + Phase B 런타임 14개 + Phase C 효과 12개 + 스킬 테스트베드 8개, 자동 테스트 총 71개 통과
+- 완료: 현재 무스킬 1 대 1 기준선의 RisuAI Lua 모듈 및 CHARX 이식
+- 미구현: 상태·예약·패시브 적용 방식, 스킬 사용 AI, 실제 상태이상 효과, 다인 교대 및 확장 규칙의 Lua 동기화
+- 완료: 강화와 다중 스킬을 지원하는 액티브 스킬 스키마 확정
+- 완료: Python Phase A 데이터 모델·검증기, Phase B 캐릭터 스킬 상태·`TurnIntent`, Phase C timing·priority·여섯 즉시 효과 카테고리
+- 완료: Player만 스킬을 장착·사용하고 무스킬 Enemy와 대전하는 Phase C 전용 UI 테스트베드
+- 다음 작업: Phase D 상태·예약 효과. 나머지 AI 난이도 보정은 후순위
+
+확정 스키마, 효과 카테고리, 적용 방식, 조건식과 단계별 구현 TODO는 `ACTIVE_SKILL_SCHEMA.md`를 기준으로 한다.
 
 ## 실행
 
@@ -24,6 +30,20 @@
 ```
 
 NPC 12종과 난수 시드를 선택한 뒤 공격·방어·회피 버튼으로 직접 플레이할 수 있다. UI는 양측 HP/스태미너/브레이크, 다운·그로기, 라운드와 결과표 로그를 표시한다. 다운 대기나 플레이어 그로기처럼 선택할 수 없는 턴은 다음 선택 시점까지 자동 진행한다.
+
+### Phase C 스킬 테스트베드 UI
+
+탐색기에서 `projects\battle-sim-poc\play_skill_testbed.cmd`를 더블클릭하거나 저장소 루트에서 실행한다.
+
+```powershell
+.\projects\battle-sim-poc\play_skill_testbed.cmd
+```
+
+Player는 예제 액티브 스킬 8종 중 최대 4개를 경기 시작 전에 장착하고, 매 턴 기본 행동과 사용할 스킬을 함께 선택한다. Enemy는 선택한 기존 행동 AI만 사용하며 스킬 로드아웃은 항상 비어 있다. UI는 스킬 사용 가능 여부, 현재 비용, 쿨다운, 남은 횟수, 원본·최종 주사위와 timing·priority·조건 실패·효과 적용 전후 값을 표시한다.
+
+`상태 제어 시험용 초기 상태 추가`는 Phase C의 `status_control` 제거·지속시간 변경을 확인하기 위해 Player에게 기존 `StatusEffect` 두 개를 배치한다. Phase D의 상태 부여·중첩 기능을 대신하는 기능은 아니다.
+
+포함된 예제는 `세컨드 윈드`, `파워 드라이브`, `스테디 폼`, `리드 더 플레이`, `리듬 리셋`, `호흡 조절`, `리저브 플랜`, `사이드라인 코칭`이다.
 
 ### 시뮬레이션 CLI
 
@@ -125,3 +145,9 @@ python -m unittest discover -s projects/battle-sim-poc -p "test_*.py" -v
 - 27개 기본 결과 및 그로기 전용 결과의 사용 횟수
 
 현재 테스트베드는 수치 및 NPC 행동 정책 조정용 1 대 1 무스킬 기준선이다. 구현 상태와 인수인계 정보는 `BATTLE_SIM_POC_PROGRESS.md`에 유지한다.
+
+## RisuAI Lua 이식본
+
+현재 무스킬 1 대 1 기준선은 `projects/battle-sim-lua`에 이식되어 있다. `BattleSim-RisuAI.charx`를 RisuAI에서 import할 수 있으며, Lua 구현 범위와 재빌드 방법은 해당 디렉터리의 `README.md`를 참조한다. 향후 스킬·상태이상·다인전 규칙은 Python 기준 구현에서 먼저 검증한 뒤 Lua 버전에 동기화한다.
+
+`results/`의 JSON은 재생성 가능한 로컬 실험 산출물이므로 Git에서 제외된다. 공유 기준선은 실행 시드·반복 횟수와 요약 수치를 `BATTLE_SIM_POC_PROGRESS.md`에 기록한다.

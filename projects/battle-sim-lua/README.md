@@ -2,6 +2,10 @@
 
 `projects/battle-sim-poc/battle_sim.py`의 현재 1 대 1 무스킬 엔진을 RisuAI Lua 모듈로 이식한 버전이다.
 
+- 기준 상태: 2026-09-01 Python 무스킬 1 대 1 코어와 NPC 12종 반영
+- 검증 상태: `BattleSim.lua` 구조 검사 통과
+- 동기화 원칙: 스킬·상태이상·다인전은 Python 기준 구현에서 안정화한 뒤 이 모듈에 반영
+
 ## 포함 범위
 
 - 27개 기본 결과표와 G01/G02/G03 그로기 결과표
@@ -81,6 +85,12 @@ Python POC에서 아직 미구현인 액티브/패시브 스킬, 실제 상태�
 
 ```powershell
 .\projects\battle-sim-lua\build.ps1 -Force
+```
+
+Lua 구조만 빠르게 검사하려면 저장소에 포함된 검사기에 대상 파일을 전달한다.
+
+```powershell
+node .\projects\battle-sim-lua\validate-lua-structure.mjs .\projects\battle-sim-lua\BattleSim.lua
 ```
 
 빌드 스크립트는 독립 Lua 모듈의 예시인 `characters/useful-bots/roguelikePOC-stage4A.charx` 구조를 스캐폴드로 사용한다. BattleSim 전용 모듈 ID와 메타데이터로 교체하므로 원본 RogueLikePOC 또는 Labo En 모듈을 개량하거나 덮어쓰지 않는다.

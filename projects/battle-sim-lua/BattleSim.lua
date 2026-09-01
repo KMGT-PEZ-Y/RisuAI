@@ -54,7 +54,7 @@ local GROGGY_TABLE = {
 local NPCS = {
   { id='rookie_cycle', name='훈련생', difficulty='쉬움' },
   { id='rookie_guard', name='초보 가드', difficulty='쉬움' },
-  { id='reckless_raider', name='무모한 습격자', difficulty='쉬움*' },
+  { id='reckless_raider', name='무모한 습격자', difficulty='쉬움' },
   { id='balanced_soldier', name='균형 잡힌 병사', difficulty='보통' },
   { id='veteran_guard', name='베테랑 가드', difficulty='보통' },
   { id='cautious_hunter', name='신중한 사냥꾼', difficulty='보통' },
@@ -206,7 +206,7 @@ local function chooseAction(strategy, context, rng)
   if strategy == 'cycle' or strategy == 'rookie_cycle' then return ACTIONS[(#context.ownHistory % 3)+1] end
   if strategy == 'reckless_raider' then
     if context.own.breakGauge >= 80 then return 'defend' end
-    return ({'attack','attack','evade'})[(#context.ownHistory%3)+1]
+    return ({'attack','attack','defend'})[(#context.ownHistory%3)+1]
   end
   if strategy == 'balanced_soldier' then
     if context.opponent.isGroggy then return weightedAction({attack=.6,defend=.1,evade=.3},rng) end
