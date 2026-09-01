@@ -98,7 +98,7 @@ PHASE_C_TEST_SKILLS: tuple[dict[str, Any], ...] = (
     _skill(
         "power_drive",
         "파워 드라이브",
-        "공격 주사위 승리 시 상대 HP 피해를 1.25배로 만든다.",
+        "공격 시 상대 HP 피해를 1.25배로 만든다.",
         tags=["result_modifier", "attack"],
         target="opponent",
         allowed_actions=["attack"],
@@ -109,11 +109,6 @@ PHASE_C_TEST_SKILLS: tuple[dict[str, Any], ...] = (
             "amplify_hp_damage",
             timing="before_result_apply",
             target="opponent",
-            condition={
-                "type": "dice_result_is",
-                "subject": "self",
-                "value": "win",
-            },
             effects=[{
                 "category": "result_modifier",
                 "operation": "multiply",

@@ -7,7 +7,15 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from battle_sim import ACTION_LABELS, Action, InvalidTurnIntent
+from battle_sim import (
+    ACTION_LABELS,
+    DICE_RESULT_LABELS,
+    GROGGY_TABLE,
+    RESULT_CONCEPTS,
+    RESULT_TABLE,
+    Action,
+    InvalidTurnIntent,
+)
 from playtest_ui import NPC_ID_BY_LABEL, NPC_OPTIONS, OUTCOME_LABELS, signed
 from skill_testbed import (
     MAX_EQUIPPED_SKILLS,
@@ -120,6 +128,7 @@ class SkillPlaytestApp:
             label: skill_id for skill_id, label in self.skill_label_by_id.items()
         }
         self.engine = None
+        self._result_table_window = None
         self.rendered_trace_count = 0
         self.result_announced = False
 
@@ -184,6 +193,9 @@ class SkillPlaytestApp:
         ttk.Button(setup, text="선택한 장착으로 새 경기", command=self.start_match).grid(
             row=0, column=6, padx=(10, 0)
         )
+        ttk.Button(
+            setup, text="기본 결과표 보기", command=self.show_result_table
+        ).grid(row=0, column=7, padx=(10, 0))
 
         ttk.Label(
             setup,
@@ -334,6 +346,100 @@ class SkillPlaytestApp:
 
     def _selected_loadout(self) -> tuple[str, ...]:
         return tuple(self.skill_ids[index] for index in self.loadout_list.curselection())
+
+    @staticmethod
+    def _format_delta(delta) -> str:
+        parts = []
+        for label, value in (
+            ("HP", delta.hp),
+            ("STA", delta.stamina),
+            ("BRK", delta.break_gauge),
+        ):
+            if value:
+                parts.append(f"{label} {signed(value)}")
+        return ", ".join(parts) if parts else "변화 없음"
+
+    def show_result_table(self) -> None:
+        if getattr(self, "_result_table_window", None) is not None:
+            self._result_table_window.deiconify()
+            self._result_table_window.lift()
+            return
+
+        window = self._result_table_window = tk.Toplevel(self.root)
+        window.title("기본 결과표 · 27 + 그로기 3")
+        window.geometry("980x680")
+        window.minsize(860, 420)
+
+        ttk.Label(
+            window,
+            text="공격/방어/회피 조합의 기본 결과값 테이블",
+            style="Title.TLabel",
+        ).pack(anchor="w", padx=12, pady=(10, 4))
+        ttk.Label(
+            window,
+            text=(
+                "표기 기준은 Player입니다. 그로기 표는 행동 측(완전 그로기 대상)과 "
+                "상대 측의 변화를 보여 줍니다."
+            ),
+        ).pack(anchor="w", padx=12, pady=(0, 8))
+
+        frame = ttk.Frame(window, padding=(12, 0, 12, 12))
+        frame.pack(fill="both", expand=True)
+        tree = ttk.Treeview(
+            frame,
+            columns=("dice", "player_delta", "enemy_delta", "concept"),
+            show="tree headings",
+        )
+        tree.heading("#0", text="판정")
+        tree.heading("dice", text="주사위")
+        tree.heading("player_delta", text="Player 변화")
+        tree.heading("enemy_delta", text="Enemy 변화")
+        tree.heading("concept", text="개요")
+        tree.column("#0", width=210, anchor="w")
+        tree.column("dice", width=150, anchor="w")
+        tree.column("player_delta", width=150, anchor="w")
+        tree.column("enemy_delta", width=150, anchor="w")
+        tree.column("concept", width=300, anchor="w")
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        for (player_action, enemy_action, dice_result), entry in sorted(
+            RESULT_TABLE.items(), key=lambda item: item[1].entry_id
+        ):
+            tree.insert(
+                "",
+                "end",
+                text=(
+                    f"{entry.entry_id} · "
+                    f"{ACTION_LABELS[player_action]} vs {ACTION_LABELS[enemy_action]}"
+                ),
+                values=(
+                    DICE_RESULT_LABELS[dice_result],
+                    self._format_delta(entry.player),
+                    self._format_delta(entry.enemy),
+                    RESULT_CONCEPTS.get(entry.entry_id, ""),
+                ),
+            )
+        for action, entry in GROGGY_TABLE.items():
+            tree.insert(
+                "",
+                "end",
+                text=f"{entry.entry_id} · 그로기 {ACTION_LABELS[action]}",
+                values=(
+                    "확정 판정",
+                    self._format_delta(entry.player),
+                    self._format_delta(entry.enemy),
+                    RESULT_CONCEPTS.get(entry.entry_id, ""),
+                ),
+            )
+
+        def _on_close() -> None:
+            self._result_table_window = None
+            window.destroy()
+
+        window.protocol("WM_DELETE_WINDOW", _on_close)
 
     def start_match(self) -> None:
         try:
