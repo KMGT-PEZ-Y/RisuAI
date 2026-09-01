@@ -654,19 +654,21 @@ enable
 
 완료 기준: 여섯 카테고리마다 최소 한 개의 즉시 스킬이 단위 테스트와 단일 경기 트레이스를 통과한다.
 
-완료 기록: 2026-09-01 `battle_sim.py`와 `test_skill_effects.py`에 구현했다. 즉시 적용 방식의 필수 timing, condition, priority와 여섯 효과 카테고리를 12개 Phase C 테스트로 검증했다. 이후 Player만 최대 4개 스킬을 장착·사용하고 무스킬 Enemy와 대전하는 UI 테스트베드와 테스트 8개를 추가해 전체 71개 테스트가 통과한다. 100,000경기 무스킬 기준선도 Player 49.419%, Enemy 50.032%, 더블 KO 0.549%, 평균 34.4389턴으로 정확히 유지된다. `on_status_apply` 실제 호출은 상태 부여가 구현되는 Phase D에서 연결한다.
+완료 기록: 2026-09-01 `battle_sim.py`와 `test_skill_effects.py`에 구현했다. 즉시 적용 방식의 필수 timing, condition, priority와 여섯 효과 카테고리를 12개 Phase C 테스트로 검증했다. 이후 Player만 최대 4개 스킬을 장착·사용하고 무스킬 Enemy와 대전하는 UI 테스트베드와 테스트 8개를 추가했다. `on_status_apply` 실제 호출은 Phase D에서 연결했다.
 
 ### Phase D — 상태와 예약 효과
 
-- [ ] `StatusEffect`를 `delivery=status` payload 보관 구조로 마이그레이션
-- [ ] 다음 자기 턴부터 발동하는 시작 규칙 구현
-- [ ] refresh·replace 및 `max_stacks=1` 구현
-- [ ] 다운 대기·행동 불능 중 지속시간 감소 규칙 유지
-- [ ] 정화 선택기와 제거 불가능 상태 처리 구현
-- [ ] `QueuedEffect` 저장, trigger, expires, consumes 구현
-- [ ] 같은 턴에 새로 부여된 상태가 선행 정화에 제거되지 않는 순서 보장
+- [x] `StatusEffect`를 `delivery=status` payload 보관 구조로 마이그레이션
+- [x] 다음 자기 턴부터 발동하는 시작 규칙 구현
+- [x] refresh·replace 및 `max_stacks=1` 구현
+- [x] 다운 대기·행동 불능 중 지속시간 감소 규칙 유지
+- [x] 정화 선택기와 제거 불가능 상태 처리 구현
+- [x] `QueuedEffect` 저장, trigger, expires, consumes 구현
+- [x] 같은 턴에 새로 부여된 상태가 선행 정화에 제거되지 않는 순서 보장
 
 완료 기준: 흔들림형 주사위 제한, 결과 증폭 상태, 상태 제거, 다음 성공 시 1회 발동 예약 효과가 자동 테스트를 통과한다.
+
+완료 기록: 2026-09-01 `battle_sim.py`, `skill_schema.py`, `test_phase_d_effects.py`에 구현했다. 상태 payload와 예약 효과를 기존 timing·priority 파이프라인에 연결하고 `on_status_apply`, 다음 자기 턴 활성화, refresh·replace, 정화 불가, 신규 상태의 후행 저장, `on_trigger`·`on_successful_apply`·`never` 소비를 Phase D 테스트 10개로 검증했다. 이어 Player 전용 테스트베드에 Phase D 예제 6종과 상태·예약 표시를 연결했다. 전체 자동 테스트 86개가 통과하며, 100,000경기 무스킬 기준선도 Player 49.419%, Enemy 50.032%, 더블 KO 0.549%, 평균 34.4389턴으로 정확히 유지된다.
 
 ### Phase E — 스킬 세트와 AI
 

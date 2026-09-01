@@ -9,6 +9,8 @@ from skill_testbed import (
     effective_stamina_cost,
     load_test_skill_registry,
     make_player_intent,
+    queued_runtime_text,
+    status_runtime_text,
 )
 
 
@@ -22,7 +24,7 @@ class SkillTestbedCatalogTests(unittest.TestCase):
             for effect in application.effects
         }
 
-        self.assertEqual(len(registry), 8)
+        self.assertEqual(len(registry), 14)
         self.assertEqual(categories, {
             "resource_change",
             "result_modifier",
@@ -166,6 +168,129 @@ class PlayerOnlySkillTestbedTests(unittest.TestCase):
             ["action_not_allowed"],
         )
         self.assertTrue(engine.validate_intent(valid).valid)
+
+
+class PhaseDPlayerOnlyTestbedTests(unittest.TestCase):
+    def test_catalog_contains_status_and_queued_deliveries(self) -> None:
+        registry = load_test_skill_registry()
+        phase_d_ids = {
+            "shaking_feint",
+            "open_guard",
+            "focused_guard",
+            "purge_negative",
+            "stored_momentum",
+            "recovery_echo",
+        }
+        deliveries = {
+            application.delivery.type.value
+            for skill_id in phase_d_ids
+            for application in registry[skill_id].level(1).applications
+        }
+
+        self.assertTrue(phase_d_ids.issubset(registry))
+        self.assertEqual(deliveries, {"immediate", "status", "queued"})
+
+    def test_every_phase_d_skill_can_be_selected_and_resolved(self) -> None:
+        actions = {
+            "shaking_feint": Action.EVADE,
+            "open_guard": Action.ATTACK,
+            "focused_guard": Action.DEFEND,
+            "purge_negative": Action.DEFEND,
+            "stored_momentum": Action.ATTACK,
+            "recovery_echo": Action.DEFEND,
+        }
+        for skill_id, action in actions.items():
+            with self.subTest(skill_id=skill_id):
+                engine = create_testbed_engine(
+                    20,
+                    enemy_strategy="attack",
+                    equipped_skill_ids=(skill_id,),
+                    add_test_statuses=True,
+                )
+                intent = make_player_intent(action, skill_id, engine.skill_registry)
+
+                self.assertTrue(engine.validate_intent(intent).valid)
+                engine.submit_player_intent(intent)
+                self.assertEqual(engine.intent_history[0][-1].active_skill_id, skill_id)
+                self.assertIsNone(engine.intent_history[1][-1].active_skill_id)
+                self.assertEqual(engine.enemy.skill_loadout, ())
+
+    def test_status_skill_is_player_cast_and_activates_next_turn(self) -> None:
+        engine = create_testbed_engine(
+            503,
+            enemy_strategy="attack",
+            equipped_skill_ids=("shaking_feint",),
+            add_test_statuses=False,
+        )
+        engine.submit_player_intent(make_player_intent(
+            Action.EVADE, "shaking_feint", engine.skill_registry
+        ))
+        first = next(
+            event["resolution"] for event in reversed(engine.trace)
+            if event["event"] == "turn"
+        )
+        self.assertEqual(first["enemy_die"], first["enemy_final_die"])
+        self.assertEqual([status.name for status in engine.enemy.statuses], ["shaken"])
+
+        engine.submit_player_action(Action.ATTACK)
+        second = next(
+            event["resolution"] for event in reversed(engine.trace)
+            if event["event"] == "turn"
+        )
+        self.assertLessEqual(second["enemy_final_die"], 3)
+
+    def test_queued_skill_stays_on_player_then_fires_on_next_win(self) -> None:
+        engine = create_testbed_engine(
+            3,
+            enemy_strategy="attack",
+            equipped_skill_ids=("stored_momentum",),
+            add_test_statuses=False,
+        )
+        engine.submit_player_intent(make_player_intent(
+            Action.ATTACK, "stored_momentum", engine.skill_registry
+        ))
+        self.assertEqual(len(engine.player.queued_effects), 1)
+        self.assertEqual(engine.enemy.queued_effects, [])
+
+        engine.submit_player_action(Action.ATTACK)
+        resolution = next(
+            event["resolution"] for event in reversed(engine.trace)
+            if event["event"] == "turn"
+        )
+        self.assertEqual(resolution["dice_result"], "win")
+        self.assertEqual(
+            resolution["applied_enemy_delta"]["break_gauge"],
+            resolution["base_enemy_delta"]["break_gauge"] + 8,
+        )
+        self.assertEqual(engine.player.queued_effects, [])
+
+    def test_runtime_text_exposes_status_and_queue_metadata(self) -> None:
+        status_engine = create_testbed_engine(
+            21,
+            enemy_strategy="attack",
+            equipped_skill_ids=("focused_guard",),
+            add_test_statuses=False,
+        )
+        status_engine.submit_player_intent(make_player_intent(
+            Action.DEFEND, "focused_guard", status_engine.skill_registry
+        ))
+        self.assertIn("집중 [positive, 정화 가능] 2턴", status_runtime_text(
+            status_engine.player
+        ))
+
+        queue_engine = create_testbed_engine(
+            22,
+            enemy_strategy="attack",
+            equipped_skill_ids=("recovery_echo",),
+            add_test_statuses=False,
+        )
+        queue_engine.submit_player_intent(make_player_intent(
+            Action.DEFEND, "recovery_echo", queue_engine.skill_registry
+        ))
+        queue_text = queued_runtime_text(queue_engine.player)
+        self.assertIn("repeat_recovery", queue_text)
+        self.assertIn("after_result_apply", queue_text)
+        self.assertIn("never", queue_text)
 
 
 if __name__ == "__main__":

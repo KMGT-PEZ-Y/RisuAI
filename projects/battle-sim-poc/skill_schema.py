@@ -683,6 +683,24 @@ class _Parser:
             selector = self.mapping(parameters.get("selector"), f"{path}.selector")
             if selector.get("type") not in {"status_id", "polarity"}:
                 self.error(f"{path}.selector.type", "expected 'status_id' or 'polarity'")
+            elif selector.get("type") == "status_id":
+                self.string(
+                    selector.get("value"),
+                    f"{path}.selector.value",
+                    identifier=True,
+                )
+            elif selector.get("value") not in {"positive", "negative", "neutral"}:
+                self.error(
+                    f"{path}.selector.value",
+                    "expected 'positive', 'negative', or 'neutral'",
+                )
+            if selector.get("order", "oldest") not in {
+                "oldest", "newest", "highest_priority"
+            }:
+                self.error(
+                    f"{path}.selector.order",
+                    "expected 'oldest', 'newest', or 'highest_priority'",
+                )
             if operation == "remove":
                 self.integer(parameters.get("count", 1), f"{path}.count", minimum=1)
             else:

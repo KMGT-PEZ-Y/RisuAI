@@ -1,8 +1,8 @@
 # Battle Simulator POC 진행상황 및 인수인계
 
 - 최종 갱신일: 2026-09-01
-- 현재 단계: 무스킬 1 대 1 코어 엔진·전략 프레임워크·NPC 정책 실험 및 RisuAI Lua 기준 이식 완료
-- 다음 우선순위: 강화와 다중 스킬을 지원하는 액티브 스킬 데이터 모델 설계
+- 현재 단계: Python Phase A-D 액티브 스킬·상태·예약 효과와 Player 전용 UI 테스트베드 완료
+- 다음 우선순위: Phase E 스킬 세트·성장 사다리와 NPC 스킬 사용 AI
 - 실행 환경: Python 표준 라이브러리, 외부 패키지 없음
 
 이 문서는 새 채팅이나 새 작업자가 현재 상태에서 바로 작업을 이어가기 위한 기준 문서다. 세부 전투 규칙은 `ROUND_TURN_BATTLE_POC_RULEBOOK.md`, 확정된 27+3 결과 수치는 `BASIC_RESULT_TABLE_DRAFT_V0.1.md`를 참조한다.
@@ -75,6 +75,15 @@
 
 Lua 버전은 현재 Python의 **무스킬 1 대 1 기준선**을 이식한 것이다. 이후 Python에 추가되는 스킬, 상태이상 실효 효과, 다인 교대는 Python에서 규칙을 안정화한 뒤 Lua에 동기화한다.
 
+### 1.6 Python 액티브 스킬과 Player 전용 테스트베드
+
+- Phase A 스키마, Phase B `TurnIntent`·비용·쿨다운·횟수, Phase C 즉시 효과 실행기 완료
+- Phase D `delivery=status`·`delivery=queued`, 다음 자기 턴 활성화, refresh·replace, 정화·만료·소비 완료
+- Player만 최대 4개 스킬을 장착하고 Enemy는 기존 무스킬 행동 AI만 사용하는 Tkinter 테스트베드 제공
+- Phase C 예제 8종과 Phase D 상태·예약 예제 6종을 한 화면에서 선택
+- 양측 상태의 polarity·정화 가능 여부·남은 턴과 예약 trigger·소비·만료 표시
+- timing·priority·상태 저장·예약 저장·상태/예약 발동을 효과 로그와 raw trace로 확인
+
 ## 2. 주요 파일
 
 | 파일 | 역할 |
@@ -85,14 +94,16 @@ Lua 버전은 현재 Python의 **무스킬 1 대 1 기준선**을 이식한 것�
 | `playtest_ui.py` | Tkinter 수동 플레이테스트 UI |
 | `play_ui.cmd` | Windows UI 실행 스크립트 |
 | `phase_c_test_skills.py` | Phase C 여섯 효과 카테고리용 Player 예제 스킬 8종 |
+| `phase_d_test_skills.py` | Phase D 상태·예약 효과용 Player 예제 스킬 6종 |
 | `skill_testbed.py` | Player 전용 테스트베드 생성·대상·비용 표시 헬퍼 |
 | `skill_playtest_ui.py` | 장착·턴별 스킬 선택·효과 검사 Tkinter UI |
-| `play_skill_testbed.cmd` | Phase C 스킬 테스트베드 Windows 실행 스크립트 |
+| `play_skill_testbed.cmd` | Phase C-D Player 전용 스킬 테스트베드 Windows 실행 스크립트 |
 | `test_battle_sim.py` | 자동 테스트 23개 |
 | `test_skill_schema.py` | 액티브 스킬 스키마 자동 테스트 14개 |
 | `test_skill_runtime.py` | Phase B 스킬 상태·TurnIntent 자동 테스트 14개 |
 | `test_skill_effects.py` | Phase C timing·여섯 즉시 효과 카테고리 자동 테스트 12개 |
-| `test_skill_testbed.py` | Player 전용 스킬 테스트베드 자동 테스트 8개 |
+| `test_phase_d_effects.py` | Phase D 상태·예약 효과 자동 테스트 10개 |
+| `test_skill_testbed.py` | Player 전용 스킬 테스트베드 자동 테스트 13개 |
 | `README.md` | 빠른 실행법과 지원 기능 |
 | `ROUND_TURN_BATTLE_POC_RULEBOOK.md` | 전체 목표 규칙과 미구현 확장 명세 |
 | `BASIC_RESULT_TABLE_DRAFT_V0.1.md` | 현재 27+3 수치와 설계 의도 |
@@ -246,9 +257,9 @@ Lua 버전은 현재 Python의 **무스킬 1 대 1 기준선**을 이식한 것�
 
 ## 7. 자동 테스트 상태
 
-현재 자동 테스트는 총 71개이며 모두 통과한다. 무스킬 전투 회귀 23개, 스키마 14개, Phase B 스킬 상태·`TurnIntent` 14개, Phase C 효과 실행기 12개, Player 전용 스킬 테스트베드 8개로 구성된다.
+현재 자동 테스트는 총 86개이며 모두 통과한다. 무스킬 전투 회귀 23개, 스키마 14개, Phase B 스킬 상태·`TurnIntent` 14개, Phase C 효과 실행기 12개, Player 전용 스킬 테스트베드 13개, Phase D 상태·예약 효과 10개로 구성된다.
 
-Phase C 완료 후 기존 조건과 같은 100,000경기 무스킬 기준선을 다시 실행했다. Player 49.419%, Enemy 50.032%, 더블 KO 0.549%, 평균 34.4389턴으로 기존 기준선과 정확히 일치해 빈 스킬 실행 경로가 난수열·밸런스를 바꾸지 않았음을 확인했다.
+Phase D 완료 후 기존 조건과 같은 100,000경기 무스킬 기준선을 다시 실행했다. Player 49.419%, Enemy 50.032%, 더블 KO 0.549%, 평균 34.4389턴으로 기존 기준선과 정확히 일치해 빈 스킬·상태·예약 실행 경로가 난수열·밸런스를 바꾸지 않았음을 확인했다.
 
 주요 검증:
 
@@ -277,22 +288,27 @@ Phase C 완료 후 기존 조건과 같은 100,000경기 무스킬 기준선을 
 - Player 최대 4개 스킬 장착과 자동 대상 결정
 - Enemy의 빈 스킬 로드아웃 및 무스킬 intent 유지
 - 테스트 상태 초기 배치와 Player 상태 제어 스킬 실행
+- `delivery=status`의 다음 자기 턴 활성화와 흔들림형 주사위 제한
+- 결과 증폭 상태, refresh·replace, `max_stacks=1`
+- polarity·순서 기반 정화와 제거 불가능 상태
+- 선행 정화 뒤 같은 턴에 부여된 신규 상태 보존
+- `on_status_apply` 디스패치
+- `delivery=queued` trigger·expires와 세 소비 방식
+- 다운 대기 중 상태·예약 효과 지속시간 감소
+- Player 전용 Phase D 상태·예약 스킬 6종 선택·실행
+- Enemy의 무스킬 로드아웃 유지와 상태·예약 런타임 UI 문자열
 
-룰북의 검증 기준 전체를 자동화한 것은 아니다. 특히 다인 교대, 상태·예약·패시브 적용 방식, 스킬 사용 AI, 상태이상 실효 효과는 아직 테스트 대상이 아니다.
+룰북의 검증 기준 전체를 자동화한 것은 아니다. 특히 다인 교대, 패시브 적용 방식, 스킬 사용 AI, 면역·다중 중첩 같은 확장 상태이상은 아직 테스트 대상이 아니다.
 
 ## 8. 아직 구현되지 않은 범위
 
-- `delivery=status` 상태 부여·재적용·중첩 실행 파이프라인
-- `delivery=queued` 예약 효과 실행 파이프라인
 - 패시브 스킬
 - Player/NPC 스킬 선택 UI 및 스킬 사용 AI
-- 실제 상태이상 효과
-- 상태이상 중첩·재적용·면역
-- 예약 효과
+- 행동 불능·지속 피해·면역·다중 스택 같은 확장 상태이상
 - 1 대 N/N 대 N 팀, 벤치, 라운드별 교대
 - 신규 Python 규칙을 RisuAI Lua 이식본에 동기화하는 회귀 절차
 
-`StatusEffect` 자료구조와 지속시간 감소 골격은 존재하지만 실제 혼란·행동 불능·주사위 제한 효과는 없다.
+`StatusEffect`와 `QueuedEffect` 실행 파이프라인은 구현되었으며, 현재 상태 중첩은 `refresh`·`replace`와 `max_stacks=1` 범위다.
 
 ## 9. 액티브 스킬 설계 시 유지할 원칙
 
@@ -332,12 +348,11 @@ Phase C 완료 후 기존 조건과 같은 100,000경기 무스킬 기준선을 
 
 ## 10. 다음 작업 권장 순서
 
-1. Phase D 상태·예약 효과를 구현하고 무스킬 회귀 테스트를 유지한다.
-2. 무스킬→저레벨→고레벨→다중 스킬 성장 사다리를 구성한다.
-3. Player와 NPC의 스킬 선택 정책을 구현하고 전략 매트릭스를 비교한다.
-4. 패시브와 확장 상태이상을 구현한다.
-5. Python 규칙이 안정된 뒤 `projects/battle-sim-lua`의 기존 모듈에 확장 규칙을 동기화하고 CHARX를 재빌드한다.
-6. NPC 정책 ID와 실제 캐릭터 이름·성격·행동 설명 분리 및 나머지 AI 난이도 보정은 후순위로 진행한다.
+1. 무스킬→저레벨→고레벨→다중 스킬 성장 사다리를 구성한다.
+2. Player와 NPC의 스킬 선택 정책을 구현하고 전략 매트릭스를 비교한다.
+3. 패시브와 확장 상태이상을 구현한다.
+4. Python 규칙이 안정된 뒤 `projects/battle-sim-lua`의 기존 모듈에 확장 규칙을 동기화하고 CHARX를 재빌드한다.
+5. NPC 정책 ID와 실제 캐릭터 이름·성격·행동 설명 분리 및 나머지 AI 난이도 보정은 후순위로 진행한다.
 
 ## 11. 새 작업 시작 체크리스트
 

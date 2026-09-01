@@ -1,4 +1,4 @@
-"""Non-visual helpers shared by the Phase C skill testbed and its tests."""
+"""Non-visual helpers shared by the Phase C-D skill testbed and its tests."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from battle_sim import (
     TurnIntent,
 )
 from phase_c_test_skills import PHASE_C_TEST_SKILLS
+from phase_d_test_skills import PHASE_D_TEST_SKILLS
 from skill_schema import SkillDefinition, Target, load_skill_definitions
 
 
@@ -19,11 +20,13 @@ MAX_EQUIPPED_SKILLS = 4
 TEST_STATUS_NAMES = {
     "shaken": "흔들림",
     "short_of_breath": "숨고르기",
+    "exposed": "노출",
+    "focus": "집중",
 }
 
 
 def load_test_skill_registry() -> Mapping[str, SkillDefinition]:
-    return load_skill_definitions(PHASE_C_TEST_SKILLS)
+    return load_skill_definitions((*PHASE_C_TEST_SKILLS, *PHASE_D_TEST_SKILLS))
 
 
 def create_testbed_engine(
@@ -52,8 +55,14 @@ def create_testbed_engine(
     )
     if add_test_statuses:
         engine.player.statuses.extend((
-            StatusEffect("shaken", 4, 0),
-            StatusEffect("short_of_breath", 5, 0),
+            StatusEffect(
+                "shaken", 4, 0,
+                display_name="흔들림", polarity="negative",
+            ),
+            StatusEffect(
+                "short_of_breath", 5, 0,
+                display_name="숨고르기", polarity="negative",
+            ),
         ))
     return engine
 
@@ -99,4 +108,27 @@ def effective_stamina_cost(
     return engine._effective_skill_cost(
         engine.player, definition.skill_id, "stamina", base_cost
     )
+
+
+def status_runtime_text(character) -> str:
+    parts = []
+    for status in character.statuses:
+        name = status.display_name or TEST_STATUS_NAMES.get(status.name, status.name)
+        removable = "정화 가능" if status.removable else "정화 불가"
+        parts.append(
+            f"{name} [{status.polarity}, {removable}] {status.remaining_turns}턴"
+        )
+    return ", ".join(parts) if parts else "없음"
+
+
+def queued_runtime_text(character) -> str:
+    parts = []
+    for queued in character.queued_effects:
+        trigger = queued.application.delivery.trigger
+        event = trigger.event.value if trigger is not None else "?"
+        parts.append(
+            f"{queued.queue_id} [{event}, {queued.consumes}] "
+            f"만료 {queued.remaining_turns}턴"
+        )
+    return ", ".join(parts) if parts else "없음"
 

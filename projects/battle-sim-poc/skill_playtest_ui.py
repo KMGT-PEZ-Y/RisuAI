@@ -1,4 +1,4 @@
-"""Tkinter UI for manually exercising Player-only Phase C active skills."""
+"""Tkinter UI for manually exercising Player-only Phase C-D active skills."""
 
 from __future__ import annotations
 
@@ -19,11 +19,12 @@ from battle_sim import (
 from playtest_ui import NPC_ID_BY_LABEL, NPC_OPTIONS, OUTCOME_LABELS, signed
 from skill_testbed import (
     MAX_EQUIPPED_SKILLS,
-    TEST_STATUS_NAMES,
     create_testbed_engine,
     effective_stamina_cost,
     load_test_skill_registry,
     make_player_intent,
+    queued_runtime_text,
+    status_runtime_text,
 )
 
 
@@ -44,11 +45,13 @@ TIMING_LABELS = {
     "before_dice_compare": "주사위 비교 전",
     "before_result_apply": "결과 적용 전",
     "after_result_apply": "결과 적용 후",
+    "on_status_apply": "상태 부여 시",
     "on_round_end": "라운드 종료",
     "on_interval": "인터벌",
 }
 REASON_LABELS = {
     "condition_not_met": "발동 조건 불충족",
+    "trigger_condition_not_met": "예약 발동 조건 불충족",
     "polarity_not_matched": "변화 방향 불일치",
     "lower_priority_action_control": "더 높은 priority 제어가 이미 적용됨",
     "skill_not_owned": "대상 스킬을 장착하지 않음",
@@ -84,8 +87,10 @@ class SkillCharacterPanel(ttk.LabelFrame):
             self.value_labels[key] = value
         self.combat_state = ttk.Label(self, text="상태: 정상")
         self.combat_state.grid(row=3, column=0, columnspan=3, sticky="w", pady=(6, 0))
-        self.statuses = ttk.Label(self, text="효과: 없음", wraplength=430)
+        self.statuses = ttk.Label(self, text="상태 효과: 없음", wraplength=430)
         self.statuses.grid(row=4, column=0, columnspan=3, sticky="w")
+        self.queued = ttk.Label(self, text="예약 효과: 없음", wraplength=430)
+        self.queued.grid(row=5, column=0, columnspan=3, sticky="w")
 
     def update_state(self, character) -> None:
         for key in ("hp", "stamina", "break_gauge"):
@@ -104,24 +109,23 @@ class SkillCharacterPanel(ttk.LabelFrame):
         self.combat_state.configure(
             text=f"상태: {state} · 다운 {character.down_count}/{character.max_down_count}"
         )
-        status_text = ", ".join(
-            f"{TEST_STATUS_NAMES.get(status.name, status.name)} "
-            f"({status.remaining_turns}턴)"
-            for status in character.statuses
-        ) or "없음"
-        self.statuses.configure(text=f"효과: {status_text}")
+        self.statuses.configure(text=f"상태 효과: {status_runtime_text(character)}")
+        self.queued.configure(text=f"예약 효과: {queued_runtime_text(character)}")
 
 
 class SkillPlaytestApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Battle Simulator POC · Phase C 스킬 테스트베드")
+        self.root.title("Battle Simulator POC · Phase C-D 스킬 테스트베드")
         self.root.geometry("1180x900")
         self.root.minsize(1000, 760)
         self.registry = load_test_skill_registry()
         self.skill_ids = tuple(self.registry)
         self.skill_label_by_id = {
-            skill_id: f"{definition.name} [{skill_id}]"
+            skill_id: (
+                f"[Phase {'D' if 'phase_d' in definition.tags else 'C'}] "
+                f"{definition.name} [{skill_id}]"
+            )
             for skill_id, definition in self.registry.items()
         }
         self.skill_id_by_label = {
@@ -155,7 +159,7 @@ class SkillPlaytestApp:
 
         ttk.Label(
             main,
-            text="Phase C · Player 액티브 스킬 테스트베드",
+            text="Phase C-D · Player 액티브 스킬 테스트베드",
             style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
@@ -293,7 +297,7 @@ class SkillPlaytestApp:
 
         notebook = ttk.Notebook(lower)
         self.battle_log = self._make_log_tab(notebook, "전투 로그")
-        self.effect_log = self._make_log_tab(notebook, "Phase C 효과 검사")
+        self.effect_log = self._make_log_tab(notebook, "Phase C-D 효과 검사")
         self.raw_log = self._make_log_tab(notebook, "Raw trace")
         lower.add(notebook, weight=1)
 
@@ -312,8 +316,15 @@ class SkillPlaytestApp:
         return log
 
     def _select_default_loadout(self) -> None:
-        for index in range(min(MAX_EQUIPPED_SKILLS, len(self.skill_ids))):
-            self.loadout_list.selection_set(index)
+        defaults = {
+            "shaking_feint",
+            "open_guard",
+            "stored_momentum",
+            "recovery_echo",
+        }
+        for index, skill_id in enumerate(self.skill_ids):
+            if skill_id in defaults:
+                self.loadout_list.selection_set(index)
 
     def _on_loadout_selection(self, _event=None) -> None:
         selected = self.loadout_list.curselection()
@@ -335,10 +346,26 @@ class SkillPlaytestApp:
             for application in level.applications
             for effect in application.effects
         })
+        deliveries = []
+        for application in level.applications:
+            delivery = application.delivery
+            description = delivery.type.value
+            if delivery.status is not None:
+                description += (
+                    f"({delivery.status.name}, {delivery.status.duration.value}턴, "
+                    f"{delivery.status.stacking.mode.value})"
+                )
+            elif delivery.trigger is not None and delivery.expires is not None:
+                description += (
+                    f"({delivery.trigger.event.value}, 만료 {delivery.expires.value}, "
+                    f"{delivery.consumes.value})"
+                )
+            deliveries.append(description)
         text = (
             f"{definition.name} [{skill_id}]\n"
             f"{definition.description}\n\n"
             f"카테고리: {', '.join(CATEGORY_LABELS.get(value, value) for value in categories)}\n"
+            f"적용 방식: {', '.join(deliveries)}\n"
             f"허용 행동: {actions} · STA {cost:g} · 쿨다운 {level.cooldown.turns}턴\n"
             f"대상: {definition.targeting.type.value}"
         )
@@ -681,7 +708,20 @@ class SkillPlaytestApp:
             timing = TIMING_LABELS.get(effect.get("timing"), effect.get("timing", "?"))
             applied = effect.get("applied", False)
             if "category" not in effect:
-                result = REASON_LABELS.get(effect.get("reason"), effect.get("reason", "미적용"))
+                if effect.get("delivery") == "status":
+                    result = (
+                        f"상태 {effect.get('status_id')} {effect.get('result')} · "
+                        f"{effect.get('remaining_turns')}턴"
+                    )
+                elif effect.get("delivery") == "queued":
+                    result = (
+                        f"예약 저장 · owner={effect.get('owner')} · "
+                        f"만료 {effect.get('remaining_turns')}턴"
+                    )
+                else:
+                    result = REASON_LABELS.get(
+                        effect.get("reason"), effect.get("reason", "미적용")
+                    )
                 self._append_log(
                     self.effect_log,
                     f"[{timing}] {effect.get('skill_id')} / {effect.get('application_id')} · {result}",
@@ -696,6 +736,8 @@ class SkillPlaytestApp:
                 f"{effect.get('skill_id')} · {category}/{effect.get('operation')} · "
                 f"{effect.get('actor')}→{effect.get('target')} · {result}"
             )
+            if effect.get("source") in {"status", "queued"}:
+                line += f" · source={effect['source']}"
             details = []
             for key, label in (
                 ("before", "전"),

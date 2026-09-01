@@ -4,7 +4,8 @@ The implementation follows:
 - ROUND_TURN_BATTLE_POC_RULEBOOK.md v0.6
 - BASIC_RESULT_TABLE_DRAFT_V0.1.md (document version 0.4)
 
-Only the no-skill, symmetric 1v1 random-policy test bed is implemented here.
+The symmetric 1v1 core also hosts the Phase A-D active-skill, status, and
+queued-effect runtime while preserving the original no-skill path.
 """
 
 from __future__ import annotations
@@ -24,7 +25,10 @@ from skill_schema import (
     CooldownStart,
     DeliveryType,
     DiceModifierOperation,
+    DurationStart,
+    DurationUnit,
     EffectCategory,
+    QueuedConsume,
     ResourceChangeOperation,
     ResultModifierOperation,
     SkillDefinition,
@@ -163,6 +167,57 @@ class StatusEffect:
     name: str
     remaining_turns: int
     applied_on_match_turn: int
+    display_name: str | None = None
+    removable: bool = True
+    polarity: str = "neutral"
+    priority: int = 100
+    duration_unit: str = "owner_turn"
+    starts: str = "next_owner_turn"
+    source_actor_index: int | None = None
+    source_skill_id: str | None = None
+    application: Any | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def status_id(self) -> str:
+        return self.name
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "remaining_turns": self.remaining_turns,
+            "applied_on_match_turn": self.applied_on_match_turn,
+            "display_name": self.display_name,
+            "removable": self.removable,
+            "polarity": self.polarity,
+            "priority": self.priority,
+            "duration_unit": self.duration_unit,
+            "starts": self.starts,
+            "source_actor_index": self.source_actor_index,
+            "source_skill_id": self.source_skill_id,
+        }
+
+
+@dataclass
+class QueuedEffect:
+    queue_id: str
+    remaining_turns: int
+    applied_on_match_turn: int
+    owner_index: int
+    source_skill_id: str
+    application: Any = field(repr=False, compare=False)
+    duration_unit: str = "owner_turn"
+    consumes: str = "on_trigger"
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "queue_id": self.queue_id,
+            "remaining_turns": self.remaining_turns,
+            "applied_on_match_turn": self.applied_on_match_turn,
+            "owner_index": self.owner_index,
+            "source_skill_id": self.source_skill_id,
+            "duration_unit": self.duration_unit,
+            "consumes": self.consumes,
+        }
 
 
 @dataclass(frozen=True)
@@ -240,6 +295,7 @@ class CharacterState:
     is_groggy: bool = False
     is_ko: bool = False
     statuses: list[StatusEffect] = field(default_factory=list)
+    queued_effects: list[QueuedEffect] = field(default_factory=list)
     skill_loadout: tuple[OwnedSkill, ...] = ()
     skill_cooldowns: dict[str, int] = field(default_factory=dict)
     skill_uses_remaining: dict[str, int | None] = field(default_factory=dict)
@@ -257,7 +313,8 @@ class CharacterState:
             "is_down": self.is_down,
             "is_groggy": self.is_groggy,
             "is_ko": self.is_ko,
-            "statuses": [asdict(status) for status in self.statuses],
+            "statuses": [status.snapshot() for status in self.statuses],
+            "queued_effects": [queued.snapshot() for queued in self.queued_effects],
             "skill_loadout": [asdict(skill) for skill in self.skill_loadout],
             "skill_cooldowns": dict(self.skill_cooldowns),
             "skill_uses_remaining": dict(self.skill_uses_remaining),
@@ -813,7 +870,7 @@ def apply_delta(character: CharacterState, delta: Delta) -> None:
 
 
 class BattleEngine:
-    """Symmetric, no-skill 1v1 battle engine with injectable action policies."""
+    """Symmetric 1v1 battle engine with injectable action policies and skills."""
 
     def __init__(
         self,
@@ -1382,8 +1439,67 @@ class BattleEngine:
         self,
         timing: Timing,
         context: EffectResolutionContext,
+        *,
+        allow_new_deliveries: bool = True,
     ) -> None:
-        pending: list[tuple[int, int, int, TurnIntent, Any]] = []
+        pending: list[tuple[int, int, int, TurnIntent, Any, str, Any | None]] = []
+
+        # Effects already attached to a character take part in the same priority
+        # ordering as immediate effects.  A status never re-checks its original
+        # application condition; a queued effect checks its trigger condition.
+        for owner_index, owner in enumerate(self.characters):
+            current_intent = next(
+                (
+                    intent for intent in context.intents
+                    if self._actor_index(intent.actor_id) == owner_index
+                ),
+                TurnIntent(self._actor_id(owner_index), context.actions[owner_index]),
+            )
+            for status_index, status in enumerate(owner.statuses):
+                if (
+                    status.application is not None
+                    and status.applied_on_match_turn < self.match_turn
+                    and status.application.timing == timing
+                ):
+                    status_intent = TurnIntent(
+                        self._actor_id(owner_index),
+                        current_intent.base_action,
+                        status.source_skill_id,
+                        self._actor_id(owner_index),
+                    )
+                    pending.append((
+                        -status.priority,
+                        owner_index,
+                        status_index,
+                        status_intent,
+                        status.application,
+                        "status",
+                        status,
+                    ))
+            for queue_index, queued in enumerate(owner.queued_effects):
+                trigger = queued.application.delivery.trigger
+                if (
+                    queued.applied_on_match_turn <= self.match_turn
+                    and trigger is not None
+                    and trigger.event == timing
+                ):
+                    queued_intent = TurnIntent(
+                        self._actor_id(owner_index),
+                        current_intent.base_action,
+                        queued.source_skill_id,
+                        self._actor_id(owner_index),
+                    )
+                    pending.append((
+                        -queued.application.priority,
+                        owner_index,
+                        queue_index,
+                        queued_intent,
+                        queued.application,
+                        "queued",
+                        queued,
+                    ))
+
+        deferred: list[tuple[int, int, int, TurnIntent, Any]] = []
         for intent in context.intents:
             if intent.active_skill_id is None:
                 continue
@@ -1395,20 +1511,37 @@ class BattleEngine:
             assert resolved is not None
             _, _, level = resolved
             for application_index, application in enumerate(level.applications):
-                if (
-                    application.timing == timing
-                    and application.delivery.type == DeliveryType.IMMEDIATE
-                ):
+                if application.timing != timing:
+                    continue
+                if application.delivery.type == DeliveryType.IMMEDIATE:
                     pending.append((
                         -application.priority,
                         actor_index,
                         application_index,
                         intent,
                         application,
+                        "immediate",
+                        None,
                     ))
-        for _, actor_index, _, intent, application in sorted(pending):
-            if application.condition is not None and not self._evaluate_effect_condition(
-                application.condition, actor_index, intent, context
+                elif allow_new_deliveries:
+                    deferred.append((
+                        -application.priority,
+                        actor_index,
+                        application_index,
+                        intent,
+                        application,
+                    ))
+
+        consumed_queues: set[int] = set()
+        expired_statuses: set[int] = set()
+        for _, actor_index, _, intent, application, source_kind, source in sorted(
+            pending, key=lambda item: item[:3]
+        ):
+            condition = application.condition if source_kind == "immediate" else None
+            if source_kind == "queued":
+                condition = application.delivery.trigger.condition
+            if condition is not None and not self._evaluate_effect_condition(
+                condition, actor_index, intent, context
             ):
                 context.effect_log.append({
                     "timing": timing.value,
@@ -1416,12 +1549,20 @@ class BattleEngine:
                     "skill_id": intent.active_skill_id,
                     "application_id": application.application_id,
                     "applied": False,
-                    "reason": "condition_not_met",
+                    "reason": (
+                        "trigger_condition_not_met"
+                        if source_kind == "queued" else "condition_not_met"
+                    ),
+                    "source": source_kind,
                 })
                 continue
-            for target_index in self._application_targets(
-                application.target, actor_index
-            ):
+            target_indexes = (
+                (actor_index,)
+                if source_kind == "status"
+                else self._application_targets(application.target, actor_index)
+            )
+            log_start = len(context.effect_log)
+            for target_index in target_indexes:
                 for effect_index, effect in enumerate(application.effects):
                     self._execute_content_effect(
                         context,
@@ -1433,6 +1574,175 @@ class BattleEngine:
                         effect,
                         effect_index,
                     )
+                    context.effect_log[-1]["source"] = source_kind
+            if source_kind == "queued":
+                successful = any(
+                    entry.get("applied", False)
+                    for entry in context.effect_log[log_start:]
+                )
+                consumes = source.consumes
+                if (
+                    consumes == QueuedConsume.ON_TRIGGER.value
+                    or (
+                        consumes == QueuedConsume.ON_SUCCESSFUL_APPLY.value
+                        and successful
+                    )
+                ):
+                    consumed_queues.add(id(source))
+                elif source.duration_unit == DurationUnit.TRIGGER_COUNT.value:
+                    source.remaining_turns -= 1
+                    if source.remaining_turns <= 0:
+                        consumed_queues.add(id(source))
+            elif (
+                source_kind == "status"
+                and source.duration_unit == DurationUnit.TRIGGER_COUNT.value
+            ):
+                source.remaining_turns -= 1
+                if source.remaining_turns <= 0:
+                    expired_statuses.add(id(source))
+
+        if consumed_queues:
+            for character in self.characters:
+                character.queued_effects = [
+                    queued for queued in character.queued_effects
+                    if id(queued) not in consumed_queues
+                ]
+        if expired_statuses:
+            for character in self.characters:
+                character.statuses = [
+                    status for status in character.statuses
+                    if id(status) not in expired_statuses
+                ]
+
+        status_applied = False
+        for _, actor_index, _, intent, application in sorted(deferred):
+            if application.condition is not None and not self._evaluate_effect_condition(
+                application.condition, actor_index, intent, context
+            ):
+                context.effect_log.append({
+                    "timing": timing.value,
+                    "actor": intent.actor_id,
+                    "skill_id": intent.active_skill_id,
+                    "application_id": application.application_id,
+                    "applied": False,
+                    "reason": "condition_not_met",
+                    "source": application.delivery.type.value,
+                })
+                continue
+            for target_index in self._application_targets(
+                application.target, actor_index
+            ):
+                if application.delivery.type == DeliveryType.STATUS:
+                    status_applied |= self._store_status(
+                        context, timing, actor_index, target_index, intent, application
+                    )
+                else:
+                    self._store_queued_effect(
+                        context, timing, actor_index, target_index, intent, application
+                    )
+
+        if status_applied and timing != Timing.ON_STATUS_APPLY:
+            self._dispatch_timing(
+                Timing.ON_STATUS_APPLY,
+                context,
+                allow_new_deliveries=False,
+            )
+
+    def _store_status(
+        self,
+        context: EffectResolutionContext,
+        timing: Timing,
+        actor_index: int,
+        target_index: int,
+        intent: TurnIntent,
+        application: Any,
+    ) -> bool:
+        spec = application.delivery.status
+        assert spec is not None
+        target = self.characters[target_index]
+        existing = next(
+            (status for status in target.statuses if status.name == spec.status_id),
+            None,
+        )
+        status = StatusEffect(
+            spec.status_id,
+            spec.duration.value,
+            self.match_turn,
+            display_name=spec.name,
+            removable=spec.removable,
+            polarity=spec.polarity.value,
+            priority=application.priority,
+            duration_unit=spec.duration.unit.value,
+            starts=(
+                spec.duration.starts.value
+                if spec.duration.starts is not None
+                else DurationStart.NEXT_OWNER_TURN.value
+            ),
+            source_actor_index=actor_index,
+            source_skill_id=intent.active_skill_id,
+            application=application,
+        )
+        mode = spec.stacking.mode.value
+        if existing is None:
+            target.statuses.append(status)
+            result = "added"
+        elif mode == "refresh":
+            existing.remaining_turns = spec.duration.value
+            existing.applied_on_match_turn = self.match_turn
+            result = "refreshed"
+        else:
+            target.statuses[target.statuses.index(existing)] = status
+            result = "replaced"
+        context.effect_log.append({
+            "timing": timing.value,
+            "actor": intent.actor_id,
+            "target": self._actor_id(target_index),
+            "skill_id": intent.active_skill_id,
+            "application_id": application.application_id,
+            "delivery": "status",
+            "status_id": spec.status_id,
+            "remaining_turns": spec.duration.value,
+            "result": result,
+            "applied": True,
+        })
+        return True
+
+    def _store_queued_effect(
+        self,
+        context: EffectResolutionContext,
+        timing: Timing,
+        actor_index: int,
+        target_index: int,
+        intent: TurnIntent,
+        application: Any,
+    ) -> None:
+        delivery = application.delivery
+        assert delivery.expires is not None and delivery.consumes is not None
+        queued = QueuedEffect(
+            application.application_id,
+            delivery.expires.value,
+            self.match_turn,
+            actor_index,
+            intent.active_skill_id or "",
+            application,
+            duration_unit=delivery.expires.unit.value,
+            consumes=delivery.consumes.value,
+        )
+        # A queued application belongs to the skill user; its target is resolved
+        # only when the trigger fires.  This lets "next successful hit" effects
+        # remain attached to the attacker while still modifying the opponent.
+        self.characters[actor_index].queued_effects.append(queued)
+        context.effect_log.append({
+            "timing": timing.value,
+            "actor": intent.actor_id,
+            "target": self._actor_id(target_index),
+            "owner": self._actor_id(actor_index),
+            "skill_id": intent.active_skill_id,
+            "application_id": application.application_id,
+            "delivery": "queued",
+            "remaining_turns": queued.remaining_turns,
+            "applied": True,
+        })
 
     def _effect_log_entry(
         self,
@@ -1563,11 +1873,24 @@ class BattleEngine:
                     index for index in selected
                     if target.statuses[index].name == selector["value"]
                 ]
+            elif selector["type"] == "polarity":
+                selected = [
+                    index for index in selected
+                    if target.statuses[index].polarity == selector["value"]
+                ]
             order = selector.get("order", "oldest")
             if order == "newest":
                 selected.reverse()
+            elif order == "highest_priority":
+                selected.sort(
+                    key=lambda index: target.statuses[index].priority,
+                    reverse=True,
+                )
             if effect.operation == StatusControlOperation.REMOVE:
-                selected = selected[:parameters.get("count", 1)]
+                selected = [
+                    index for index in selected
+                    if target.statuses[index].removable
+                ][:parameters.get("count", 1)]
                 before = len(target.statuses)
                 removed = set(selected)
                 target.statuses = [
@@ -1949,14 +2272,51 @@ class BattleEngine:
         character.is_groggy = False
 
     def _tick_active_statuses(self) -> None:
-        for character in self.characters:
+        for character_index, character in enumerate(self.characters):
+            opponent = self.characters[1 - character_index]
+            actionable = (
+                not character.is_down
+                and not character.is_groggy
+                and not character.is_ko
+                and not opponent.is_down
+            )
             kept: list[StatusEffect] = []
             for status in character.statuses:
-                if status.applied_on_match_turn < self.match_turn:
+                active = status.applied_on_match_turn < self.match_turn
+                unit = status.duration_unit
+                if active and (
+                    unit in {
+                        DurationUnit.OWNER_TURN.value,
+                        DurationUnit.EXCHANGE.value,
+                    }
+                    or (
+                        unit == DurationUnit.OWNER_ACTIONABLE_TURN.value
+                        and actionable
+                    )
+                ):
                     status.remaining_turns -= 1
                 if status.remaining_turns > 0:
                     kept.append(status)
             character.statuses = kept
+
+            kept_queued: list[QueuedEffect] = []
+            for queued in character.queued_effects:
+                active = queued.applied_on_match_turn < self.match_turn
+                unit = queued.duration_unit
+                if active and (
+                    unit in {
+                        DurationUnit.OWNER_TURN.value,
+                        DurationUnit.EXCHANGE.value,
+                    }
+                    or (
+                        unit == DurationUnit.OWNER_ACTIONABLE_TURN.value
+                        and actionable
+                    )
+                ):
+                    queued.remaining_turns -= 1
+                if queued.remaining_turns > 0:
+                    kept_queued.append(queued)
+            character.queued_effects = kept_queued
 
     def _end_round(
         self, context: EffectResolutionContext | None = None
@@ -1982,9 +2342,19 @@ class BattleEngine:
             character.break_gauge = floor_percent(character.break_gauge, 0.50)
             character.is_groggy = False
             for status in character.statuses:
-                status.remaining_turns -= 2
+                if status.duration_unit == DurationUnit.ROUND.value:
+                    status.remaining_turns -= 1
+                else:
+                    status.remaining_turns -= 2
             character.statuses = [
                 status for status in character.statuses if status.remaining_turns > 0
+            ]
+            for queued in character.queued_effects:
+                if queued.duration_unit == DurationUnit.ROUND.value:
+                    queued.remaining_turns -= 1
+            character.queued_effects = [
+                queued for queued in character.queued_effects
+                if queued.remaining_turns > 0
             ]
             for owned in character.skill_loadout:
                 resolved = self._owned_skill(character, owned.skill_id)
