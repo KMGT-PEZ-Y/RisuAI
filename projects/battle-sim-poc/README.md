@@ -9,17 +9,39 @@
 - 완료: 27+3 결과표, 1 대 1 무스킬 엔진, 라운드·그로기·다운·KO, 시드 재현, 전략 프레임워크
 - 완료: 표준 Player 정책 8종 × NPC 정책 12종의 96개 케이스 실험
 - 완료: Tkinter 기반 수동 플레이테스트 UI
-- 검증: 무스킬 전투 23개 + 스키마 14개 + Phase B 런타임 14개 + Phase C 효과 12개 + 스킬 테스트베드 13개 + Phase D 상태·예약 10개, 자동 테스트 총 86개 통과
+- 검증: 기존 Phase A-D 등 86개 + 쉬움 적 스킬·선택기·랜덤 비교 20개, 자동 테스트 총 106개 통과
 - 완료: 현재 무스킬 1 대 1 기준선의 RisuAI Lua 모듈 및 CHARX 이식
-- 미구현: 패시브 적용 방식, 스킬 사용 AI, 면역·다중 중첩 등 확장 상태이상, 다인 교대 및 확장 규칙의 Lua 동기화
+- 미구현: 패시브 적용 방식, 보통 이상 적의 스킬·운용, 면역·다중 중첩 등 확장 상태이상, 다인 교대 및 확장 규칙의 Lua 동기화
 - 완료: 강화와 다중 스킬을 지원하는 액티브 스킬 스키마 확정
 - 완료: Python Phase A 데이터 모델·검증기, Phase B 캐릭터 스킬 상태·`TurnIntent`, Phase C timing·priority·여섯 즉시 효과 카테고리, Phase D 상태·예약 효과
 - 완료: Player만 스킬을 장착·사용하고 무스킬 Enemy와 대전하는 Phase C-D 통합 UI 테스트베드
-- 다음 작업: Phase E 스킬 세트와 AI. 나머지 AI 난이도 보정은 후순위
+- 완료: 쉬움 적 3종의 예정형 스킬 선택, 공유 스킬 5종, 동일 장착 랜덤 Player와 적별 1,000경기 비교, 수동 플레이 UI
+- 다음 작업: 쉬움 적의 실제 패턴 가독성·빈틈을 플레이로 검증하고 수치 조정. 보통 이상은 별도 설계
 
 확정 스키마, 효과 카테고리, 적용 방식, 조건식과 단계별 구현 TODO는 `ACTIVE_SKILL_SCHEMA.md`를 기준으로 한다.
 
+2026-09-03: 스킬 자동 선택 AI와 관련 설정·전용 테스트·설계 문서를 롤백했다.
+이후 쉬움 적 3종과 랜덤 Player에 한정하여 새 선택기를 구현했다. 기본 설정은 여전히 자동 시전 없음이며, 새 테스트베드에서 명시적으로 선택기를 활성화한다.
+Phase A-D 실행기와 Player 수동 스킬 테스트베드는 유지한다.
+`phase_e_skill_sets.py`의 3레벨 예제 스킬 3종과 성장 비교용 장착 데이터는 선택 알고리즘과 독립적인 데이터로만 보존했다.
+
 ## 실행
+
+### 쉬움 적 스킬 플레이테스트
+
+`play_easy_enemies.cmd`를 더블클릭한다. Enemy 3종을 선택하고 Player도 새 스킬 5종 중 최대 3개를 장착할 수 있다. `적과 같은 장착으로 새 경기` 버튼으로 동일 장착 비교가 가능하다.
+
+```powershell
+.\projects\battle-sim-poc\play_easy_enemies.cmd
+```
+
+합의한 수치·조건·일정·난수·실패 처리는 `EASY_ENEMY_SKILLS.md`, 적별 1,000경기 결과는 `EASY_ENEMY_PLAYTEST_RESULTS.md`에 기록한다. 랜덤 Player는 적과 같은 세 스킬을 1레벨로 장착하며, 행동을 고른 뒤 사용 가능한 스킬과 미사용 중 균등 선택한다.
+
+재실행:
+
+```powershell
+& "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -X utf8 .\projects\battle-sim-poc\run_easy_enemy_simulation.py --matches 1000 --seed 20260903 --json projects/battle-sim-poc/results/easy_enemies_1000.json --report projects/battle-sim-poc/EASY_ENEMY_PLAYTEST_RESULTS.md
+```
 
 ### 플레이테스트 UI
 
@@ -146,7 +168,7 @@ python -m unittest discover -s projects/battle-sim-poc -p "test_*.py" -v
 - 행동 선택 횟수
 - 27개 기본 결과 및 그로기 전용 결과의 사용 횟수
 
-현재 테스트베드는 수치 및 NPC 행동 정책 조정용 1 대 1 무스킬 기준선이다. 구현 상태와 인수인계 정보는 `BATTLE_SIM_POC_PROGRESS.md`에 유지한다.
+무스킬 기준선, C-D 효과 시험, 쉬움 적 스킬 시험은 별도 진입점으로 유지한다. 구현 상태와 인수인계 정보는 `BATTLE_SIM_POC_PROGRESS.md`에 유지한다.
 
 ## RisuAI Lua 이식본
 

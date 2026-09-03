@@ -17,6 +17,8 @@ import math
 import random
 from typing import Any, Iterable, Mapping
 
+from skill_selection import SKILL_POLICY_NAMES, SkillDecision, choose_skill, skill_target_id
+
 from skill_schema import (
     ActionControlOperation,
     Condition,
@@ -883,11 +885,16 @@ class BattleEngine:
         skill_registry: Mapping[str, SkillDefinition] | None = None,
         player_skills: Iterable[OwnedSkill] = (),
         enemy_skills: Iterable[OwnedSkill] = (),
+        player_skill_policy: str = "none",
+        enemy_skill_policy: str = "none",
     ) -> None:
         if player_strategy not in STRATEGY_NAMES:
             raise ValueError(f"unknown player strategy: {player_strategy!r}")
         if enemy_strategy not in STRATEGY_NAMES:
             raise ValueError(f"unknown enemy strategy: {enemy_strategy!r}")
+        for policy in (player_skill_policy, enemy_skill_policy):
+            if policy not in SKILL_POLICY_NAMES:
+                raise ValueError(f"unknown skill policy: {policy!r}")
         self.seed = seed
         self.rng = random.Random(seed)
         # Policy RNGs are separated from dice RNG so a strategy's internal random
@@ -897,6 +904,13 @@ class BattleEngine:
             random.Random(seed ^ 0xD1B54A32D192ED03),
         )
         self.strategies = (player_strategy, enemy_strategy)
+        self.skill_policies = (player_skill_policy, enemy_skill_policy)
+        self.skill_rngs = (
+            random.Random(seed ^ 0x94D049BB133111EB),
+            random.Random(seed ^ 0xBF58476D1CE4E5B9),
+        )
+        self.last_skill_decisions: list[SkillDecision | None] = [None, None]
+        self.skill_selection_counts: tuple[Counter, Counter] = (Counter(), Counter())
         self.action_history: tuple[list[Action], list[Action]] = ([], [])
         self.exchange_history: tuple[
             list[StrategyExchange], list[StrategyExchange]
@@ -1036,11 +1050,54 @@ class BattleEngine:
         )
 
     def _choose_intent(self, actor_index: int) -> TurnIntent:
-        """Backward-compatible policy intent; Phase E will add skill choices."""
-        return TurnIntent(
-            actor_id=self._actor_id(actor_index),
-            base_action=self._choose_action(actor_index),
+        action = self._choose_action(actor_index)
+        if self.skill_policies[actor_index] == "none":
+            return TurnIntent(self._actor_id(actor_index), action)
+        decision = self._skill_decision(
+            actor_index, action, rng=self.skill_rngs[actor_index], upcoming_turn=False,
         )
+        self.last_skill_decisions[actor_index] = decision
+        self.skill_selection_counts[actor_index][decision.reason] += 1
+        for issue in decision.issues:
+            self.skill_selection_counts[actor_index][issue] += 1
+        self._log(
+            "skill_selection", actor=self._actor_id(actor_index),
+            action_number=len(self.action_history[actor_index]) + 1,
+            base_action=action.value, policy=self.skill_policies[actor_index],
+            **asdict(decision),
+        )
+        return self._intent_with_skill(actor_index, action, decision.selected_skill_id)
+
+    def _intent_with_skill(
+        self, actor_index: int, action: Action, skill_id: str | None,
+    ) -> TurnIntent:
+        actor_id = self._actor_id(actor_index)
+        definition = self.skill_registry.get(skill_id) if skill_id else None
+        target = skill_target_id(definition.targeting.type.value, actor_id) if definition else None
+        return TurnIntent(actor_id, action, skill_id, target)
+
+    def _skill_decision(
+        self, actor_index: int, action: Action, *, rng: random.Random, upcoming_turn: bool,
+    ) -> SkillDecision:
+        def validate(skill_id: str) -> tuple[str, ...]:
+            result = self.validate_intent(
+                self._intent_with_skill(actor_index, action, skill_id),
+                upcoming_turn=upcoming_turn,
+            )
+            return tuple(issue.code for issue in result.issues)
+
+        return choose_skill(
+            self.skill_policies[actor_index], action=action.value,
+            action_number=len(self.action_history[actor_index]) + 1,
+            equipped_skill_ids=tuple(s.skill_id for s in self.characters[actor_index].skill_loadout),
+            validate=validate, rng=rng,
+        )
+
+    def preview_skill_decision(self, actor_index: int, action: Action) -> SkillDecision:
+        """Inspect a given action without choosing it or consuming any decision state."""
+        rng = random.Random()
+        rng.setstate(self.skill_rngs[actor_index].getstate())
+        return self._skill_decision(actor_index, action, rng=rng, upcoming_turn=True)
 
     def validate_intent(
         self,
@@ -2400,6 +2457,7 @@ class ManualBattleEngine(BattleEngine):
         skill_registry: Mapping[str, SkillDefinition] | None = None,
         player_skills: Iterable[OwnedSkill] = (),
         enemy_skills: Iterable[OwnedSkill] = (),
+        enemy_skill_policy: str = "none",
     ) -> None:
         super().__init__(
             seed,
@@ -2411,6 +2469,7 @@ class ManualBattleEngine(BattleEngine):
             skill_registry=skill_registry,
             player_skills=player_skills,
             enemy_skills=enemy_skills,
+            enemy_skill_policy=enemy_skill_policy,
         )
         self._submitted_player_action: Action | None = None
         self._submitted_player_intent: TurnIntent | None = None

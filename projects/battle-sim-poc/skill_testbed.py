@@ -96,17 +96,19 @@ def make_player_intent(
 def effective_stamina_cost(
     engine: ManualBattleEngine,
     skill_id: str,
+    actor_index: int = 0,
 ) -> float:
-    resolved = engine._owned_skill(engine.player, skill_id)
+    actor = engine.characters[actor_index]
+    resolved = engine._owned_skill(actor, skill_id)
     if resolved is None:
-        raise ValueError(f"player does not own skill {skill_id!r}")
+        raise ValueError(f"actor does not own skill {skill_id!r}")
     _, definition, level = resolved
     base_cost = next(
         (cost.amount for cost in level.costs if cost.resource.value == "stamina"),
         0,
     )
     return engine._effective_skill_cost(
-        engine.player, definition.skill_id, "stamina", base_cost
+        actor, definition.skill_id, "stamina", base_cost
     )
 
 

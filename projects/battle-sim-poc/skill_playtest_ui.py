@@ -16,7 +16,7 @@ from battle_sim import (
     Action,
     InvalidTurnIntent,
 )
-from playtest_ui import NPC_ID_BY_LABEL, NPC_OPTIONS, OUTCOME_LABELS, signed
+from playtest_ui import NPC_OPTIONS, OUTCOME_LABELS, signed
 from skill_testbed import (
     MAX_EQUIPPED_SKILLS,
     create_testbed_engine,
@@ -114,15 +114,26 @@ class SkillCharacterPanel(ttk.LabelFrame):
 
 
 class SkillPlaytestApp:
+    TITLE = "Phase C-D · Player 액티브 스킬 테스트베드"
+    DESCRIPTION = "Player만 액티브 스킬을 사용합니다. Enemy는 기존 행동 AI만 사용하며 스킬을 장착하지 않습니다."
+    NPC_CHOICES = NPC_OPTIONS
+    DEFAULT_NPC_INDEX = 3
+    DEFAULT_SKILLS = ("shaking_feint", "open_guard", "stored_momentum", "recovery_echo")
+    MAX_SKILLS = MAX_EQUIPPED_SKILLS
+    USE_TEST_STATUSES = True
+    load_registry = staticmethod(load_test_skill_registry)
+    create_engine = staticmethod(create_testbed_engine)
+
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Battle Simulator POC · Phase C-D 스킬 테스트베드")
+        self.root.title("Battle Simulator POC · " + self.TITLE)
         self.root.geometry("1180x900")
         self.root.minsize(1000, 760)
-        self.registry = load_test_skill_registry()
+        self.registry = self.load_registry()
         self.skill_ids = tuple(self.registry)
         self.skill_label_by_id = {
             skill_id: (
+                definition.name if "easy_enemy" in definition.tags else
                 f"[Phase {'D' if 'phase_d' in definition.tags else 'C'}] "
                 f"{definition.name} [{skill_id}]"
             )
@@ -159,27 +170,25 @@ class SkillPlaytestApp:
 
         ttk.Label(
             main,
-            text="Phase C-D · Player 액티브 스킬 테스트베드",
+            text=self.TITLE,
             style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             main,
-            text=(
-                "Player만 액티브 스킬을 사용합니다. Enemy는 선택한 기존 행동 AI만 "
-                "사용하며 스킬을 장착하지 않습니다."
-            ),
+            text=self.DESCRIPTION,
         ).grid(row=1, column=0, sticky="w", pady=(2, 8))
 
         setup = ttk.LabelFrame(main, text="경기 설정과 스킬 장착", padding=10)
+        self.setup_frame = setup
         setup.grid(row=2, column=0, sticky="ew")
         setup.columnconfigure(1, weight=1)
         setup.columnconfigure(5, weight=1)
         ttk.Label(setup, text="Enemy AI").grid(row=0, column=0, sticky="w")
-        self.npc_var = tk.StringVar(value=NPC_OPTIONS[3][0])
+        self.npc_var = tk.StringVar(value=self.NPC_CHOICES[self.DEFAULT_NPC_INDEX][0])
         ttk.Combobox(
             setup,
             textvariable=self.npc_var,
-            values=[label for label, _ in NPC_OPTIONS],
+            values=[label for label, _ in self.NPC_CHOICES],
             state="readonly",
             width=44,
         ).grid(row=0, column=1, columnspan=2, sticky="ew", padx=(6, 12))
@@ -188,12 +197,11 @@ class SkillPlaytestApp:
         ttk.Entry(setup, textvariable=self.seed_var, width=13).grid(
             row=0, column=4, padx=(6, 12)
         )
-        self.test_status_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            setup,
-            text="상태 제어 시험용 초기 상태 추가",
-            variable=self.test_status_var,
-        ).grid(row=0, column=5, sticky="w")
+        self.test_status_var = tk.BooleanVar(value=self.USE_TEST_STATUSES)
+        if self.USE_TEST_STATUSES:
+            ttk.Checkbutton(
+                setup, text="상태 제어 시험용 초기 상태 추가", variable=self.test_status_var,
+            ).grid(row=0, column=5, sticky="w")
         ttk.Button(setup, text="선택한 장착으로 새 경기", command=self.start_match).grid(
             row=0, column=6, padx=(10, 0)
         )
@@ -203,7 +211,7 @@ class SkillPlaytestApp:
 
         ttk.Label(
             setup,
-            text=f"장착 스킬 · Ctrl/Shift로 최대 {MAX_EQUIPPED_SKILLS}개 선택",
+            text=f"장착 스킬 · Ctrl/Shift로 최대 {self.MAX_SKILLS}개 선택",
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(10, 3))
         ttk.Label(setup, text="선택 스킬 설명").grid(
             row=1, column=3, columnspan=4, sticky="w", pady=(10, 3)
@@ -297,7 +305,7 @@ class SkillPlaytestApp:
 
         notebook = ttk.Notebook(lower)
         self.battle_log = self._make_log_tab(notebook, "전투 로그")
-        self.effect_log = self._make_log_tab(notebook, "Phase C-D 효과 검사")
+        self.effect_log = self._make_log_tab(notebook, "스킬 효과 검사")
         self.raw_log = self._make_log_tab(notebook, "Raw trace")
         lower.add(notebook, weight=1)
 
@@ -316,12 +324,7 @@ class SkillPlaytestApp:
         return log
 
     def _select_default_loadout(self) -> None:
-        defaults = {
-            "shaking_feint",
-            "open_guard",
-            "stored_momentum",
-            "recovery_echo",
-        }
+        defaults = self.DEFAULT_SKILLS
         for index, skill_id in enumerate(self.skill_ids):
             if skill_id in defaults:
                 self.loadout_list.selection_set(index)
@@ -475,18 +478,18 @@ class SkillPlaytestApp:
             messagebox.showerror("잘못된 시드", "시드는 정수로 입력해주세요.")
             return
         loadout = self._selected_loadout()
-        if len(loadout) > MAX_EQUIPPED_SKILLS:
+        if len(loadout) > self.MAX_SKILLS:
             messagebox.showerror(
                 "장착 제한",
-                f"Player 스킬은 최대 {MAX_EQUIPPED_SKILLS}개까지 장착할 수 있습니다.",
+                f"Player 스킬은 최대 {self.MAX_SKILLS}개까지 장착할 수 있습니다.",
             )
             return
-        enemy_strategy = NPC_ID_BY_LABEL.get(self.npc_var.get())
+        enemy_strategy = dict(self.NPC_CHOICES).get(self.npc_var.get())
         if enemy_strategy is None:
             messagebox.showerror("Enemy 선택 오류", "Enemy AI를 다시 선택해주세요.")
             return
         try:
-            self.engine = create_testbed_engine(
+            self.engine = self.create_engine(
                 seed,
                 enemy_strategy=enemy_strategy,
                 equipped_skill_ids=loadout,
@@ -507,7 +510,7 @@ class SkillPlaytestApp:
         self._append_log(self.battle_log, f"새 경기 · 시드 {seed}")
         self._append_log(
             self.battle_log,
-            f"Enemy: {self.npc_var.get()} · 스킬 없음",
+            f"Enemy: {self.npc_var.get()} · " + self._enemy_loadout_text(),
         )
         self._append_log(
             self.battle_log,
@@ -519,6 +522,10 @@ class SkillPlaytestApp:
                 "상태 제어 시험용 초기 상태: 흔들림 4턴, 숨고르기 5턴",
             )
         self.refresh()
+
+    def _enemy_loadout_text(self) -> str:
+        names = [self.registry[owned.skill_id].name for owned in self.engine.enemy.skill_loadout]
+        return "장착: " + ", ".join(names) if names else "스킬 없음"
 
     def _selected_skill_id(self) -> str | None:
         label = self.active_skill_var.get()
@@ -650,6 +657,24 @@ class SkillPlaytestApp:
                     f"  [인터벌] 라운드 {event['round']} 종료 · 기본 회복 적용",
                 )
                 self._render_effects(event.get("effects", ()), "인터벌")
+            elif event["event"] == "skill_selection":
+                reasons = {
+                    "basic_slot": "기본 행동 차례",
+                    "scheduled": "예정된 스킬 사용",
+                    "unavailable": "예정 스킬 생략",
+                    "random_selected": "랜덤 선택",
+                    "random_no_skill": "랜덤 미사용",
+                    "no_legal_skill": "사용 가능한 스킬 없음",
+                }
+                planned = event.get("planned_skill_id")
+                skill_name = self.registry[planned].name if planned in self.registry else "없음"
+                issues = " / ".join(VALIDATION_LABELS.get(code, code) for code in event.get("issues", ()))
+                self._append_log(
+                    self.battle_log,
+                    f"[스킬 판단] {event['actor']} · 자기 행동 {event['action_number']} · "
+                    f"{ACTION_LABELS[Action(event['base_action'])]} · 예정 {skill_name} · "
+                    f"{reasons.get(event['reason'], event['reason'])}" + (f" · {issues}" if issues else ""),
+                )
         self.rendered_trace_count = len(self.engine.trace)
 
     def _render_turn_event(self, event: dict) -> None:
@@ -667,9 +692,12 @@ class SkillPlaytestApp:
                 f"{resolution['enemy_final_die']}"
             )
             skill = resolution.get("player_skill") or "없음"
+            enemy_skill = resolution.get("enemy_skill") or "없음"
             line = (
                 f"\n{prefix} · {player_action} vs {enemy_action} · "
-                f"스킬 {skill} · 주사위 {raw}→{final} · "
+                f"Player 스킬 {self.registry[skill].name if skill in self.registry else skill} · "
+                f"Enemy 스킬 {self.registry[enemy_skill].name if enemy_skill in self.registry else enemy_skill} · "
+                f"주사위 {raw}→{final} · "
                 f"결과표 {resolution['entry_id']}"
             )
         elif resolution["kind"] == "groggy":
