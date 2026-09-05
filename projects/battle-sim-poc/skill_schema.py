@@ -71,6 +71,8 @@ class SkillControlOperation(str, Enum):
     MODIFY_COST = "modify_cost"
     CHANGE_COOLDOWN = "change_cooldown"
     CHANGE_CHARGES = "change_charges"
+    COST_DISCOUNT = "cost_discount"
+    SEAL = "seal"
 
 
 EffectOperation = (
@@ -208,6 +210,13 @@ class StatusSpec:
     stacking: StackingSpec
     removable: bool
     polarity: StatusPolarity
+    tags: tuple[str, ...] = ()
+    group: str | None = None
+    effect_target: Target = Target.SELF
+    active_condition: Condition | None = None
+    consume_on_trigger: bool = False
+    interval_decay: bool = True
+    active_timing: Timing | None = None
 
 
 @dataclass(frozen=True)
@@ -344,6 +353,7 @@ _PREDICATE_MIN_TIMING: dict[str, Timing] = {
     "is_ko": Timing.ON_SKILL_COMMIT,
     "status_present": Timing.ON_SKILL_COMMIT,
     "status_absent": Timing.ON_SKILL_COMMIT,
+    "status_tag_present": Timing.ON_SKILL_COMMIT,
     "status_count_at_least": Timing.ON_SKILL_COMMIT,
     "skill_ready": Timing.ON_SKILL_COMMIT,
     "skill_uses_remaining_at_least": Timing.ON_SKILL_COMMIT,
@@ -503,6 +513,7 @@ class _Parser:
             "skill_uses_remaining_at_least", "raw_die_is",
             "final_die_at_least", "final_die_at_most", "dice_result_is",
             "result_delta_is",
+            "status_tag_present",
         }
         if predicate in subject_predicates and arguments.get("subject") not in _SUBJECTS:
             self.error(f"{path}.subject", "expected 'self' or 'opponent'")
@@ -539,6 +550,8 @@ class _Parser:
             self.boolean(arguments.get("value"), f"{path}.value")
         if predicate in {"status_present", "status_absent"}:
             self.string(arguments.get("status_id"), f"{path}.status_id", identifier=True)
+        if predicate == "status_tag_present":
+            self.string(arguments.get("tag"), f"{path}.tag", identifier=True)
         if predicate in {"skill_ready", "skill_uses_remaining_at_least"}:
             self.string(arguments.get("skill_id"), f"{path}.skill_id", identifier=True)
         if predicate == "dice_result_is" and arguments.get("value") not in _DICE_RESULTS:
@@ -548,7 +561,7 @@ class _Parser:
         if predicate == "result_delta_is" and arguments.get("comparison") not in _COMPARISONS:
             self.error(f"{path}.comparison", "unsupported comparison")
 
-    def delivery(self, raw: Any, path: str) -> DeliverySpec:
+    def delivery(self, raw: Any, path: str, timing: Timing = Timing.ON_SKILL_COMMIT) -> DeliverySpec:
         data = self.mapping(raw, path)
         delivery_type = self.enum(DeliveryType, data.get("type"), f"{path}.type")
         if delivery_type == DeliveryType.IMMEDIATE:
@@ -593,6 +606,16 @@ class _Parser:
                     status_data.get("polarity"),
                     f"{path}.status.polarity",
                 ),
+                tuple(self.string(tag, f"{path}.status.tags", identifier=True)
+                      for tag in self.sequence(status_data.get("tags", []), f"{path}.status.tags")),
+                (self.string(status_data["group"], f"{path}.status.group", identifier=True)
+                 if status_data.get("group") is not None else None),
+                self.enum(Target, status_data.get("effect_target", "self"), f"{path}.status.effect_target"),
+                self.condition(status_data.get("active_condition"), f"{path}.status.active_condition",
+                               timing=self.enum(Timing, status_data.get("active_timing", timing.value), f"{path}.status.active_timing")),
+                self.boolean(status_data.get("consume_on_trigger", False), f"{path}.status.consume_on_trigger"),
+                self.boolean(status_data.get("interval_decay", True), f"{path}.status.interval_decay"),
+                self.enum(Timing, status_data.get("active_timing", timing.value), f"{path}.status.active_timing"),
             )
             return DeliverySpec(delivery_type, status=status)
 
@@ -653,7 +676,9 @@ class _Parser:
         if category == EffectCategory.RESOURCE_CHANGE:
             self.enum(Resource, parameters.get("resource"), f"{path}.resource")
             self.number(parameters.get("value"), f"{path}.value")
+            self.boolean(parameters.get("requires_living", False), f"{path}.requires_living")
         elif category == EffectCategory.RESULT_MODIFIER:
+            self.boolean(parameters.get("requires_base_change", False), f"{path}.requires_base_change")
             self.enum(Resource, parameters.get("resource"), f"{path}.resource")
             if parameters.get("direction") not in {"dealt", "received", "self", "opponent"}:
                 self.error(f"{path}.direction", "unsupported result direction")
@@ -681,9 +706,9 @@ class _Parser:
                 self.error(f"{path}.action", f"unknown action {parameters.get('action')!r}")
         elif category == EffectCategory.STATUS_CONTROL:
             selector = self.mapping(parameters.get("selector"), f"{path}.selector")
-            if selector.get("type") not in {"status_id", "polarity"}:
-                self.error(f"{path}.selector.type", "expected 'status_id' or 'polarity'")
-            elif selector.get("type") == "status_id":
+            if selector.get("type") not in {"status_id", "polarity", "tag"}:
+                self.error(f"{path}.selector.type", "expected 'status_id', 'polarity' or 'tag'")
+            elif selector.get("type") in {"status_id", "tag"}:
                 self.string(
                     selector.get("value"),
                     f"{path}.selector.value",
@@ -706,6 +731,16 @@ class _Parser:
             else:
                 self.number(parameters.get("value"), f"{path}.value")
         elif category == EffectCategory.SKILL_CONTROL:
+            if operation == "seal":
+                return
+            if operation == "cost_discount":
+                self.integer(parameters.get("value"), f"{path}.value", minimum=1)
+                self.integer(parameters.get("minimum_cost", 8), f"{path}.minimum_cost", minimum=0)
+                self.integer(parameters.get("cooldown_reduction", 0), f"{path}.cooldown_reduction", minimum=0)
+                self.string(parameters.get("eligible_tag"), f"{path}.eligible_tag", identifier=True)
+                if parameters.get("extend_on_tag") is not None:
+                    self.string(parameters["extend_on_tag"], f"{path}.extend_on_tag", identifier=True)
+                return
             self.mapping(parameters.get("selector"), f"{path}.selector")
             self.number(parameters.get("value"), f"{path}.value")
             if operation == "modify_cost":
@@ -719,7 +754,7 @@ class _Parser:
             self.error(f"{path}.effects", "at least one effect required")
         return SkillApplication(
             self.string(data.get("id"), f"{path}.id", identifier=True),
-            self.delivery(data.get("delivery"), f"{path}.delivery"),
+            self.delivery(data.get("delivery"), f"{path}.delivery", timing),
             timing,
             self.enum(Target, data.get("target"), f"{path}.target"),
             self.condition(data.get("condition"), f"{path}.condition", timing=timing),

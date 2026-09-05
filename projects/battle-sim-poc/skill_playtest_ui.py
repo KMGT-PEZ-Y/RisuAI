@@ -57,6 +57,8 @@ REASON_LABELS = {
     "skill_not_owned": "대상 스킬을 장착하지 않음",
 }
 VALIDATION_LABELS = {
+    "action_restricted": "현재 상태로 선택할 수 없는 행동입니다.",
+    "skills_sealed": "이번 턴은 스킬 사용이 금지되어 있습니다. 기본 행동을 선택하세요.",
     "action_not_allowed": "선택한 행동과 함께 사용할 수 없습니다.",
     "requirements_not_met": "사용 조건을 만족하지 않습니다.",
     "insufficient_resource": "스태미너가 부족합니다.",
@@ -133,6 +135,7 @@ class SkillPlaytestApp:
         self.skill_ids = tuple(self.registry)
         self.skill_label_by_id = {
             skill_id: (
+                f"[{skill_id.upper()}] {definition.name}" if "muh" in definition.tags else
                 definition.name if "easy_enemy" in definition.tags else
                 f"[Phase {'D' if 'phase_d' in definition.tags else 'C'}] "
                 f"{definition.name} [{skill_id}]"
@@ -304,6 +307,7 @@ class SkillPlaytestApp:
         lower.add(runtime_box, weight=0)
 
         notebook = ttk.Notebook(lower)
+        self.log_notebook = notebook
         self.battle_log = self._make_log_tab(notebook, "전투 로그")
         self.effect_log = self._make_log_tab(notebook, "스킬 효과 검사")
         self.raw_log = self._make_log_tab(notebook, "Raw trace")
@@ -370,6 +374,7 @@ class SkillPlaytestApp:
             f"카테고리: {', '.join(CATEGORY_LABELS.get(value, value) for value in categories)}\n"
             f"적용 방식: {', '.join(deliveries)}\n"
             f"허용 행동: {actions} · STA {cost:g} · 쿨다운 {level.cooldown.turns}턴\n"
+            f"경기당 사용: {level.usage_limit.per_match if level.usage_limit.per_match is not None else '무제한'}\n"
             f"대상: {definition.targeting.type.value}"
         )
         self._replace_text(self.skill_details, text)

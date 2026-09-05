@@ -178,6 +178,9 @@ class StatusEffect:
     source_actor_index: int | None = None
     source_skill_id: str | None = None
     application: Any | None = field(default=None, repr=False, compare=False)
+    tags: tuple[str, ...] = ()
+    group: str | None = None
+    discount_extended: bool = False
 
     @property
     def status_id(self) -> str:
@@ -196,6 +199,9 @@ class StatusEffect:
             "starts": self.starts,
             "source_actor_index": self.source_actor_index,
             "source_skill_id": self.source_skill_id,
+            "tags": self.tags,
+            "group": self.group,
+            "discount_extended": self.discount_extended,
         }
 
 
@@ -278,6 +284,7 @@ class EffectResolutionContext:
         default_factory=lambda: [[], []]
     )
     action_controlled: set[int] = field(default_factory=set)
+    base_deltas: list[dict[str, float]] | None = None
     effect_log: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -873,6 +880,7 @@ def apply_delta(character: CharacterState, delta: Delta) -> None:
 
 class BattleEngine:
     """Symmetric 1v1 battle engine with injectable action policies and skills."""
+    _simulation = False
 
     def __init__(
         self,
@@ -887,14 +895,19 @@ class BattleEngine:
         enemy_skills: Iterable[OwnedSkill] = (),
         player_skill_policy: str = "none",
         enemy_skill_policy: str = "none",
+        ng_judgment: float = 1.0,
     ) -> None:
-        if player_strategy not in STRATEGY_NAMES:
+        if player_strategy not in (*STRATEGY_NAMES, "ng_plus"):
             raise ValueError(f"unknown player strategy: {player_strategy!r}")
-        if enemy_strategy not in STRATEGY_NAMES:
+        if enemy_strategy not in (*STRATEGY_NAMES, "ng_plus"):
             raise ValueError(f"unknown enemy strategy: {enemy_strategy!r}")
         for policy in (player_skill_policy, enemy_skill_policy):
             if policy not in SKILL_POLICY_NAMES:
                 raise ValueError(f"unknown skill policy: {policy!r}")
+        if not math.isfinite(ng_judgment) or not 0 <= ng_judgment <= 1:
+            raise ValueError("NG+ judgment must be between 0 and 1")
+        self.ng_judgment = ng_judgment
+        self.last_ng_decisions = [None, None]
         self.seed = seed
         self.rng = random.Random(seed)
         # Policy RNGs are separated from dice RNG so a strategy's internal random
@@ -956,6 +969,8 @@ class BattleEngine:
         character: CharacterState,
         loadout: tuple[OwnedSkill, ...],
     ) -> None:
+        from muh_skills import validate_loadout
+        validate_loadout(tuple(owned.skill_id for owned in loadout), self.skill_registry)
         seen: set[str] = set()
         for owned in loadout:
             if owned.skill_id in seen:
@@ -991,18 +1006,49 @@ class BattleEngine:
             return None
         return owned, definition, definition.level(owned.level)
 
-    @staticmethod
     def _effective_skill_cost(
+        self,
         character: CharacterState,
         skill_id: str,
         resource: str,
         base_amount: float,
+        *, upcoming_turn: bool = True,
     ) -> float:
         persistent = character.skill_cost_modifiers.get(skill_id, {}).get(
             resource, 0
         )
         next_use = character.next_skill_cost_modifiers.get(resource, 0)
-        return max(0, base_amount + persistent + next_use)
+        amount = max(0, base_amount + persistent + next_use)
+        definition = self.skill_registry.get(skill_id)
+        if resource == "stamina" and definition is not None:
+            for _, rule in self._status_rules(character, upcoming_turn=upcoming_turn):
+                if (rule.operation == SkillControlOperation.COST_DISCOUNT
+                        and rule.parameters["eligible_tag"] in definition.tags):
+                    amount = max(rule.parameters.get("minimum_cost", 8),
+                                 amount - rule.parameters["value"])
+        return amount
+
+    def _status_rules(self, actor: CharacterState, *, upcoming_turn: bool):
+        for status in actor.statuses:
+            if (status.application is not None and status.remaining_turns > 0
+                    and status.applied_on_match_turn < self.match_turn + int(upcoming_turn)):
+                for effect in status.application.effects:
+                    yield status, effect
+
+    def legal_actions(self, actor_index: int, *, upcoming_turn: bool = True) -> tuple[Action, ...]:
+        allowed = list(Action)
+        rules = sorted(self._status_rules(self.characters[actor_index], upcoming_turn=upcoming_turn),
+                       key=lambda item: -item[0].priority)
+        for status, effect in rules:
+            if "selection_control" not in status.tags or effect.category != EffectCategory.ACTION_CONTROL:
+                continue
+            if effect.operation == ActionControlOperation.FORCE:
+                return (Action(effect.parameters["action"]),)
+            values = {Action(value) for value in effect.parameters["actions"]}
+            allowed = [action for action in allowed if
+                       (action not in values if effect.operation == ActionControlOperation.FORBID
+                        else action in values)]
+        return tuple(allowed)
 
     def _log(self, event: str, **details: Any) -> None:
         if not self.trace_enabled:
@@ -1050,7 +1096,15 @@ class BattleEngine:
         )
 
     def _choose_intent(self, actor_index: int) -> TurnIntent:
+        if self.strategies[actor_index] == "ng_plus":
+            from ng_plus_ai import create_request
+            decision = create_request(self, actor_index, turn_started=True).decide()
+            self.record_ng_decision(actor_index, decision)
+            return decision.intent
         action = self._choose_action(actor_index)
+        allowed = self.legal_actions(actor_index, upcoming_turn=False)
+        if action not in allowed:
+            action = allowed[0]
         if self.skill_policies[actor_index] == "none":
             return TurnIntent(self._actor_id(actor_index), action)
         decision = self._skill_decision(
@@ -1067,6 +1121,10 @@ class BattleEngine:
             **asdict(decision),
         )
         return self._intent_with_skill(actor_index, action, decision.selected_skill_id)
+
+    def record_ng_decision(self, actor_index, decision):
+        self.last_ng_decisions[actor_index] = decision
+        self._log("ng_plus_decision", actor=self._actor_id(actor_index), **decision.summary())
 
     def _intent_with_skill(
         self, actor_index: int, action: Action, skill_id: str | None,
@@ -1114,6 +1172,8 @@ class BattleEngine:
             ),))
         actor = self.characters[actor_index]
         opponent = self.characters[1 - actor_index]
+        if intent.base_action not in self.legal_actions(actor_index, upcoming_turn=upcoming_turn):
+            issues.append(IntentValidationIssue("action_restricted", "action restricted by an active status"))
         if actor.is_down or actor.is_groggy or actor.is_ko:
             issues.append(IntentValidationIssue(
                 "actor_cannot_act",
@@ -1135,6 +1195,10 @@ class BattleEngine:
             ))
             return IntentValidationResult(tuple(issues))
         _, definition, level = resolved
+
+        if any(effect.operation == SkillControlOperation.SEAL
+               for _, effect in self._status_rules(actor, upcoming_turn=upcoming_turn)):
+            issues.append(IntentValidationIssue("skills_sealed", "active skills are sealed this turn"))
 
         if intent.base_action.value not in level.requirements.allowed_actions:
             issues.append(IntentValidationIssue(
@@ -1163,6 +1227,7 @@ class BattleEngine:
                 definition.skill_id,
                 cost.resource.value,
                 cost.amount,
+                upcoming_turn=upcoming_turn,
             )
             if (
                 current < effective_cost
@@ -1297,6 +1362,9 @@ class BattleEngine:
                 status.name == arguments["status_id"] for status in subject.statuses
             )
             return present if predicate == "status_present" else not present
+        if predicate == "status_tag_present":
+            return any(arguments["tag"] in status.tags and status.remaining_turns > 0
+                       for status in subject.statuses)
         if predicate == "status_count_at_least":
             return len(subject.statuses) >= arguments["value"]
         if predicate == "skill_ready":
@@ -1349,8 +1417,12 @@ class BattleEngine:
                     definition.skill_id,
                     cost.resource.value,
                     cost.amount,
+                    upcoming_turn=upcoming_turn,
                 )
                 setattr(actor, cost.resource.value, current - effective_cost)
+                if "muh" in definition.tags:
+                    self._log("skill_cost", actor=intent.actor_id, skill_id=definition.skill_id,
+                              resource=cost.resource.value, base=cost.amount, paid=effective_cost)
             actor.next_skill_cost_modifiers.clear()
             if actor.skill_uses_remaining[definition.skill_id] is not None:
                 actor.skill_uses_remaining[definition.skill_id] -= 1
@@ -1361,6 +1433,22 @@ class BattleEngine:
             self._skills_committed_this_turn.add(
                 (actor_index, definition.skill_id)
             )
+            consumed = set()
+            for status, rule in self._status_rules(actor, upcoming_turn=upcoming_turn):
+                if rule.operation != SkillControlOperation.COST_DISCOUNT:
+                    continue
+                params = rule.parameters
+                if params["eligible_tag"] in definition.tags:
+                    if not {"control", "finisher"}.intersection(definition.tags):
+                        reduction = params.get("cooldown_reduction", 0)
+                        if reduction:
+                            actor.skill_cooldowns[definition.skill_id] = max(
+                                2, actor.skill_cooldowns[definition.skill_id] - reduction)
+                    consumed.add(id(status))
+                elif params.get("extend_on_tag") in definition.tags and not status.discount_extended:
+                    status.remaining_turns += 1
+                    status.discount_extended = True
+            actor.statuses = [status for status in actor.statuses if id(status) not in consumed]
 
     def _finalize_intent_cooldowns(self, intents: Iterable[TurnIntent]) -> None:
         for intent in intents:
@@ -1516,7 +1604,7 @@ class BattleEngine:
                 if (
                     status.application is not None
                     and status.applied_on_match_turn < self.match_turn
-                    and status.application.timing == timing
+                    and (status.application.delivery.status.active_timing or status.application.timing) == timing
                 ):
                     status_intent = TurnIntent(
                         self._actor_id(owner_index),
@@ -1595,6 +1683,10 @@ class BattleEngine:
             pending, key=lambda item: item[:3]
         ):
             condition = application.condition if source_kind == "immediate" else None
+            if source_kind == "status":
+                if source not in self.characters[actor_index].statuses:
+                    continue
+                condition = application.delivery.status.active_condition
             if source_kind == "queued":
                 condition = application.delivery.trigger.condition
             if condition is not None and not self._evaluate_effect_condition(
@@ -1614,7 +1706,7 @@ class BattleEngine:
                 })
                 continue
             target_indexes = (
-                (actor_index,)
+                self._application_targets(application.delivery.status.effect_target, actor_index)
                 if source_kind == "status"
                 else self._application_targets(application.target, actor_index)
             )
@@ -1657,6 +1749,8 @@ class BattleEngine:
                 source.remaining_turns -= 1
                 if source.remaining_turns <= 0:
                     expired_statuses.add(id(source))
+            if source_kind == "status" and application.delivery.status.consume_on_trigger:
+                expired_statuses.add(id(source))
 
         if consumed_queues:
             for character in self.characters:
@@ -1717,6 +1811,9 @@ class BattleEngine:
         spec = application.delivery.status
         assert spec is not None
         target = self.characters[target_index]
+        if spec.group is not None:
+            target.statuses = [status for status in target.statuses
+                               if status.group != spec.group or status.name == spec.status_id]
         existing = next(
             (status for status in target.statuses if status.name == spec.status_id),
             None,
@@ -1738,6 +1835,8 @@ class BattleEngine:
             source_actor_index=actor_index,
             source_skill_id=intent.active_skill_id,
             application=application,
+            tags=spec.tags,
+            group=spec.group,
         )
         mode = spec.stacking.mode.value
         if existing is None:
@@ -1840,6 +1939,10 @@ class BattleEngine:
         target = self.characters[target_index]
 
         if effect.category == EffectCategory.RESOURCE_CHANGE:
+            if parameters.get("requires_living", False) and (target.hp <= 0 or target.is_down or target.is_ko):
+                log.update(applied=False, reason="target_not_living")
+                context.effect_log.append(log)
+                return
             resource = parameters["resource"]
             before = getattr(target, resource)
             maximum = getattr(target, f"max_{resource}")
@@ -1872,6 +1975,9 @@ class BattleEngine:
                 or (sign < 0 and before < 0)
                 or (sign > 0 and before > 0)
             )
+            if parameters.get("requires_base_change", False):
+                base = (context.base_deltas or context.deltas)[target_index][resource]
+                matches = matches and base * sign > 0
             if not matches:
                 log.update(applied=False, reason="polarity_not_matched", before=before)
             else:
@@ -1908,7 +2014,11 @@ class BattleEngine:
             if target_index in context.action_controlled:
                 log.update(applied=False, reason="lower_priority_action_control")
             else:
-                if effect.operation == ActionControlOperation.FORCE:
+                if (application.delivery.status is not None
+                        and "selection_control" in application.delivery.status.tags):
+                    allowed = self.legal_actions(target_index, upcoming_turn=False)
+                    after = before if before in allowed else allowed[0]
+                elif effect.operation == ActionControlOperation.FORCE:
                     after = Action(parameters["action"])
                 elif effect.operation == ActionControlOperation.ALLOW_ONLY:
                     allowed = tuple(Action(value) for value in parameters["actions"])
@@ -1935,6 +2045,10 @@ class BattleEngine:
                     index for index in selected
                     if target.statuses[index].polarity == selector["value"]
                 ]
+            elif selector["type"] == "tag":
+                selected = [index for index in selected
+                            if selector["value"] in target.statuses[index].tags]
+            selected.sort(key=lambda index: (target.statuses[index].applied_on_match_turn, index))
             order = selector.get("order", "oldest")
             if order == "newest":
                 selected.reverse()
@@ -1967,6 +2081,10 @@ class BattleEngine:
                 ])
 
         elif effect.category == EffectCategory.SKILL_CONTROL:
+            if effect.operation in {SkillControlOperation.COST_DISCOUNT, SkillControlOperation.SEAL}:
+                log.update(applied=False, reason="evaluated_during_intent_validation")
+                context.effect_log.append(log)
+                return
             selector = parameters["selector"]
             selected_skill_id = selector.get("value")
             if (
@@ -1995,6 +2113,9 @@ class BattleEngine:
             elif effect.operation == SkillControlOperation.CHANGE_COOLDOWN:
                 before = target.skill_cooldowns.get(selected_skill_id, 0)
                 after = max(0, before + int(parameters["value"]))
+                definition = self.skill_registry.get(selected_skill_id)
+                if definition and "muh" in definition.tags and parameters["value"] < 0:
+                    after = before if {"control", "finisher"}.intersection(definition.tags) else max(min(before, 2), after)
                 target.skill_cooldowns[selected_skill_id] = after
                 log.update(before=before, after=after)
             else:
@@ -2003,6 +2124,9 @@ class BattleEngine:
                     after = None
                 else:
                     after = max(0, before + int(parameters["value"]))
+                    definition = self.skill_registry.get(selected_skill_id)
+                    if definition and "muh" in definition.tags:
+                        after = min(before, after)
                     target.skill_uses_remaining[selected_skill_id] = after
                 log.update(before=before, after=after)
 
@@ -2070,7 +2194,7 @@ class BattleEngine:
         self.turn_in_round += 1
         self._skills_committed_this_turn.clear()
         self._current_effect_context = None
-        before = [character.snapshot() for character in self.characters]
+        before = None if self._simulation else [character.snapshot() for character in self.characters]
 
         groggy_count = sum(character.is_groggy for character in self.characters)
         self.metrics.groggy_character_turns += groggy_count
@@ -2092,7 +2216,7 @@ class BattleEngine:
             )
         self._tick_skill_cooldowns()
         self._tick_active_statuses()
-        after = [character.snapshot() for character in self.characters]
+        after = None if self._simulation else [character.snapshot() for character in self.characters]
         self._log("turn", resolution=resolution, before=before, after=after)
 
         if self.outcome is None and self.turn_in_round >= 8:
@@ -2144,6 +2268,7 @@ class BattleEngine:
                 "break_gauge": entry.enemy.break_gauge,
             },
         ]
+        context.base_deltas = [dict(delta) for delta in context.deltas]
         self._dispatch_timing(Timing.BEFORE_RESULT_APPLY, context)
         self.exchange_history[0].append(
             StrategyExchange(
@@ -2167,6 +2292,8 @@ class BattleEngine:
         self._dispatch_timing(Timing.AFTER_RESULT_APPLY, context)
         self._after_resource_change()
         self._finalize_intent_cooldowns(intents)
+        if self._simulation:
+            return {}
         return {
             "kind": "normal",
             "player_action": player_action.value,
@@ -2226,6 +2353,7 @@ class BattleEngine:
         }
         context.deltas[actor_index] = actor_delta
         context.deltas[1 - actor_index] = target_delta
+        context.base_deltas = [dict(delta) for delta in context.deltas]
         self._dispatch_timing(Timing.BEFORE_RESULT_APPLY, context)
         self.metrics.action_counts[
             f"{'player' if actor_index == 0 else 'enemy'}:{action.value}"
@@ -2239,6 +2367,8 @@ class BattleEngine:
         self._dispatch_timing(Timing.AFTER_RESULT_APPLY, context)
         self._after_resource_change()
         self._finalize_intent_cooldowns((intent,))
+        if self._simulation:
+            return {}
         return {
             "kind": "groggy",
             "actor": actor.name,
@@ -2378,7 +2508,7 @@ class BattleEngine:
     def _end_round(
         self, context: EffectResolutionContext | None = None
     ) -> None:
-        interval_before = [character.snapshot() for character in self.characters]
+        interval_before = None if self._simulation else [character.snapshot() for character in self.characters]
         # Any non-KO downed character rises immediately before interval recovery.
         for character in self.characters:
             if character.is_down and not character.is_ko:
@@ -2399,6 +2529,8 @@ class BattleEngine:
             character.break_gauge = floor_percent(character.break_gauge, 0.50)
             character.is_groggy = False
             for status in character.statuses:
+                if status.application is not None and not status.application.delivery.status.interval_decay:
+                    continue
                 if status.duration_unit == DurationUnit.ROUND.value:
                     status.remaining_turns -= 1
                 else:
@@ -2437,7 +2569,7 @@ class BattleEngine:
         self._log(
             "interval",
             before=interval_before,
-            after=[character.snapshot() for character in self.characters],
+            after=None if self._simulation else [character.snapshot() for character in self.characters],
             effects=interval_effects,
         )
         self.round_number += 1
@@ -2458,6 +2590,7 @@ class ManualBattleEngine(BattleEngine):
         player_skills: Iterable[OwnedSkill] = (),
         enemy_skills: Iterable[OwnedSkill] = (),
         enemy_skill_policy: str = "none",
+        ng_judgment: float = 1.0,
     ) -> None:
         super().__init__(
             seed,
@@ -2470,6 +2603,7 @@ class ManualBattleEngine(BattleEngine):
             player_skills=player_skills,
             enemy_skills=enemy_skills,
             enemy_skill_policy=enemy_skill_policy,
+            ng_judgment=ng_judgment,
         )
         self._submitted_player_action: Action | None = None
         self._submitted_player_intent: TurnIntent | None = None
