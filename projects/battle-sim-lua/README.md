@@ -1,98 +1,64 @@
-# RisuAI Round/Turn Battle Simulator
+# BattleSim Lua POC v2.0
 
-`projects/battle-sim-poc/battle_sim.py`의 현재 1 대 1 무스킬 엔진을 RisuAI Lua 모듈로 이식한 버전이다.
-
-- 기준 상태: 2026-09-01 Python 무스킬 1 대 1 코어와 NPC 12종 반영
-- 검증 상태: `BattleSim.lua` 구조 검사 통과
-- 동기화 원칙: 스킬·상태이상·다인전은 Python 기준 구현에서 안정화한 뒤 이 모듈에 반영
-
-## 포함 범위
-
-- 27개 기본 결과표와 G01/G02/G03 그로기 결과표
-- HP/STA/BRK 동시 적용, 완전 그로기, 최대 3다운과 KO
-- 다운 대기·기상, 대기 HP 4% 회복, 8턴 인터벌
-- 플레이어 수동 공격/방어/회피 및 POC의 NPC 12종
-- 전투 난수와 정책 난수를 분리한 직렬화 가능 LCG
-- 채팅별 `setState` 저장과 RisuAI 버튼 UI
-- 턴별 주사위 판정, 피해 점멸·흔들림, 상태 heartbeat, 경기 종료 오버레이
-- 결과 확인 후 다운·그로기·인터벌을 한 단계씩 진행하는 presentation 상태
-
-Python POC에서 아직 미구현인 액티브/패시브 스킬, 실제 상태이상 효과, 다인 교대는 이 모듈에도 포함하지 않는다.
+2026-09-05 Python POC의 스킬 전투를 RisuAI CHARX로 포팅한 버전입니다. 실행할 때 Python, 외부 서버, LLM 호출이 필요하지 않습니다.
 
 ## 사용
 
-1. RisuAI에서 `BattleSim-RisuAI.charx`를 모듈/캐릭터로 import한다.
-2. 표시되는 패널에서 NPC를 선택하거나 채팅에 `/battle`을 입력한다.
-3. 공격·방어·회피 버튼으로 진행한다.
+1. `BattleSim-RisuAI.charx`를 RisuAI에 가져옵니다.
+2. 대전 준비에서 플레이어·상대의 이름과 사진 에셋 접두사를 지정합니다. 기존 12종 캐릭터도 선택할 수 있습니다.
+3. 상대 AI를 **기존 AI / NG+ AI**에서 고릅니다. 캐릭터 사진과 AI 설정은 서로 독립적입니다. NG+ 판단 충실도는 1.0입니다.
+4. 양쪽 덱을 각각 편집합니다. 빈 장착, 기본 3종, 컨셉 프리셋 13종이 있으며 스킬을 자유롭게 추가·해제할 수 있습니다.
+5. **이 설정으로 새 대전 시작**을 누릅니다. 행동 → 스킬 → **선택한 행동 실행** 순서로 진행합니다. 선택한 스킬 설명은 버튼 아래에 계속 표시됩니다.
+6. 기본 연출은 종전 속도입니다. **빠른 진행**을 켜면 애니메이션 대기 없이 결과를 확인할 수 있습니다. 다운·그로기 등 강제 턴도 버튼으로 한 단계씩 진행합니다.
 
-## 초상화 에셋
+대전 설정으로 돌아가도 현재 경기는 유지됩니다. 설정 변경은 새 경기에 적용되며, **진행 중인 경기로 돌아가기**로 이어갈 수 있습니다. `/battle`은 설정 패널을 다시 엽니다.
 
-모듈은 `{{raw::name.png}}` 방식으로 사용자 주입 에셋을 표시한다. `{name}`은 플레이어의 경우 `player`, NPC는 `rookie_cycle`, `balanced_soldier`, `executor` 같은 정책 ID다.
+## 반영한 결정
 
-1280×768 이미지 17장:
+| 항목 | 구현 |
+|---|---|
+| 일반 화면 | 초급 5종 + M/U/H 30종 = 35종 |
+| 개발자 탭 | Phase C 8종 + D 6종 + E 3종 = 17종; E 스킬 Lv.1~3 선택 |
+| 덱 | 최대 5개; Python 제약 그대로 제어·결정기 각 1개, 도발 압박·승부수 동시 장착 금지 |
+| 캐릭터 | 사용자 이름·사진 접두사 지정, 기존 캐릭터 선택 |
+| 기존 AI | 기존 12종 행동 정책; 초급 3종은 원래 스킬 사용 일정, 나머지는 결정된 행동의 합법적 스킬/미사용 중 무작위 선택 |
+| NG+ | 행동·스킬 공동 탐색; 3턴, 시나리오 4개, 빔 2개, 상위 4개 재검증, 최대 6,552회 전이 |
+| 상대 정보 | 장착 스킬 이름만 표시. 적의 스킬 레벨·CD·잔여 사용 횟수·준비/예약 효과 상세는 출력하지 않음. 기존 HP/STA/BRK·다운·그로기 HUD는 유지 |
+| 사진 | 기존 38종 + `{접두사}_skill_{스킬ID}.png`; 기존과 같은 `img src="{{raw::...}}"` |
+| 기존 저장 | v1의 자원·다운·난수·전투 진행을 유지하고 양쪽 스킬만 빈 장착으로 초기화 |
+| 진행 속도 | 기존 연출 유지 + 빠른 진행 선택 |
 
-```text
-{name}_main_d0_healthy.png
-{name}_main_d0_wounded.png
-{name}_main_d0_critical.png
-{name}_main_d1_healthy.png
-{name}_main_d1_wounded.png
-{name}_main_d1_critical.png
-{name}_main_d2_healthy.png
-{name}_main_d2_wounded.png
-{name}_main_d2_critical.png
-{name}_down_d1.png
-{name}_down_d2.png
-{name}_ko.png
-{name}_interval_d0.png
-{name}_interval_d1.png
-{name}_interval_d2.png
-{name}_result_win.png
-{name}_result_lose.png
-```
+사진 제작·등록은 아직 하지 않았습니다. 사진이 없는 상태에서도 대전은 가능합니다. 스킬 사진은 기본 꺼짐이며 에셋을 추가한 뒤 켜면 선택 설명과 해당 스킬의 행동 연출에서 출력됩니다. 전체 파일명·용도·비율은 **ASSETS.md**에 있습니다.
 
-1024×1024 투명 이미지 21장:
+## 이관과 검증 범위
 
-```text
-{name}_action_attack.png
-{name}_action_defend.png
-{name}_action_evade.png
-{name}_resolve_attack_success.png
-{name}_resolve_attack_failed.png
-{name}_resolve_defend_success.png
-{name}_resolve_guard_broken.png
-{name}_resolve_evade_success.png
-{name}_resolve_evade_caught.png
-{name}_resolve_cross_clash.png
-{name}_resolve_clinch.png
-{name}_resolve_standoff.png
-{name}_reaction_hit_light.png
-{name}_reaction_hit_medium.png
-{name}_reaction_hit_heavy.png
-{name}_reaction_stamina_drained.png
-{name}_reaction_break_shaken.png
-{name}_reaction_recover.png
-{name}_reaction_groggy.png
-{name}_reaction_wake_d1.png
-{name}_reaction_wake_d2.png
-```
+기존 저장 키 `battle_sim_state_v1`을 유지하고 내부 버전을 2로 올립니다. v1에서 아직 계산하지 않았던 인터벌은 Continue에서 한 번만 계산합니다. v2에서는 턴 종료 시 논리 계산을 완료하고 저장한 연출 화면을 순서대로 보여 줍니다. 새 CHARX를 별도 캐릭터로 가져오면 기존 캐릭터의 채팅이 자동 복사되지는 않습니다. 같은 채팅에서 모듈을 교체할 때 상태 이관이 적용됩니다.
 
-이미지가 없을 때는 초상화 프레임의 P/E 폴백이 남는다.
+Python과 Lua는 같은 행동·주사위·스킬 상태에서 결과가 일치하도록 검증했습니다. Python은 MT19937, Lua는 기존 LCG를 사용하므로 **같은 숫자 시드만 입력해 두 프로그램의 경기 전체가 같아지지는 않습니다**. NG+도 공통 시나리오를 주입하면 후보 점수·탐색 깊이·전이 횟수가 일치합니다. 판단 충실도 1.0에서도 Python과 동일하게 온도 2의 확률적 최종 선택을 사용합니다.
 
-행동 이후에는 행동 이미지→주사위→행동 결과 이미지→피해·자원 반응 이미지→그로기·기상 이미지→새 메인 이미지 순서로 표시된다. `다음 턴`을 누르면 다운 대기, 그로기 강제 행동, 라운드 인터벌을 각각 한 단계씩 확인할 수 있다.
+검증 결과와 제한은 **VALIDATION.md**를 참고하세요. 설치된 RisuAI 데스크톱 앱에 직접 가져오는 검증은 수행하지 않았습니다. 공식 실행기와 같은 Wasmoon/Lua 5.4 및 JSON·Promise 계약, 브라우저 표시를 검증했습니다.
 
-재빌드:
+## 소스와 재빌드
+
+| 파일 | 역할 |
+|---|---|
+| `src/legacy.lua` | 종전 엔진·정책·사진 연출의 고정 원본 |
+| `src/data.lua` | Python 정의에서 자동 생성한 52종 스킬·프리셋 |
+| `src/engine.lua` | 조건·비용·효과·상태·예약·쿨다운·인터벌·이관 |
+| `src/ng_plus.lua` | 동일 실행기를 쓰는 NG+ 탐색 |
+| `src/ui.lua` | 캐릭터·덱 설정, 대전 UI, RisuAI 저장·버튼 연결 |
+| `src/skills.css` | 스킬 UI와 빠른 진행 스타일 |
+| `BattleSim.lua`, `BattleSim.css` | 단일 배포 소스와 CSS |
+| `BattleSim-RisuAI.before-skills.charx` | 이번 스킬 포팅 전 백업 |
+
+프로젝트 폴더에서:
 
 ```powershell
-.\projects\battle-sim-lua\build.ps1 -Force
+python build.py
 ```
 
-Lua 구조만 빠르게 검사하려면 저장소에 포함된 검사기에 대상 파일을 전달한다.
+Python 정의 검증 → 데이터 추출 → Lua 조립 → CHARX 생성 → 내장 Lua/CSS 일치 검사를 수행합니다. 원본 사진 등이 들어 있는 CHARX를 기반으로 다시 만들려면 `python build.py --source 원본.charx --output 결과.charx`를 사용하세요. 단일 Lua 트리거가 있는 BattleSim 패키지를 입력해야 합니다.
 
-```powershell
-node .\projects\battle-sim-lua\validate-lua-structure.mjs .\projects\battle-sim-lua\BattleSim.lua
-```
+`build.ps1 -Force`는 이미 조립된 `BattleSim.lua`와 CSS를 패키징하는 보조 경로입니다. `src`를 수정한 경우 먼저 `python assemble.py`를 실행해야 합니다.
 
-빌드 스크립트는 독립 Lua 모듈의 예시인 `characters/useful-bots/roguelikePOC-stage4A.charx` 구조를 스캐폴드로 사용한다. BattleSim 전용 모듈 ID와 메타데이터로 교체하므로 원본 RogueLikePOC 또는 Labo En 모듈을 개량하거나 덮어쓰지 않는다.
-
-CSS는 Lua가 출력하지 않는다. `BattleSim.css`의 `<style>` 블록을 `card.data.extensions.risuai.backgroundHTML`에 넣는 RisuAI background embedding 방식을 사용한다.
+테스트는 `qa.py`, `qa_wasmoon.mjs`, `qa_browser.mjs`에 있으며 개발용 의존성은 배포 파일에 들어가지 않습니다. CSS는 기존처럼 CHARX의 `backgroundHTML`에 넣습니다.

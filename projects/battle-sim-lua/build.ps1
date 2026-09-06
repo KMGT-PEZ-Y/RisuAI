@@ -1,5 +1,5 @@
 param(
-    [string]$SourceCharx = (Join-Path $PSScriptRoot '..\..\characters\useful-bots\roguelikePOC-stage4A.charx'),
+    [string]$SourceCharx = (Join-Path $PSScriptRoot 'BattleSim-RisuAI.before-skills.charx'),
     [string]$LuaSource = (Join-Path $PSScriptRoot 'BattleSim.lua'),
     [string]$CssSource = (Join-Path $PSScriptRoot 'BattleSim.css'),
     [string]$OutputCharx = (Join-Path $PSScriptRoot 'BattleSim-RisuAI.charx'),
@@ -51,17 +51,17 @@ try{
   }
   $effect.code=[IO.File]::ReadAllText($lua,[Text.Encoding]::UTF8)
   $root.module.name='Round Turn Battle Simulator'
-  $root.module.description='Python battle_sim_poc를 독립 이식한 RisuAI Lua 전투 엔진'
+  $root.module.description='Python POC 스킬 52종, 기존 AI·NG+, 캐릭터·덱 설정을 이식한 Lua 전투 모듈'
   $root.module.id='4af9bb2c-16a4-4d49-90b8-cba2e39e6487'
   [IO.File]::WriteAllBytes($modulePath,(Encode-Module $root))
 
   $cardPath=Join-Path $temp 'card.json'
   $card=[IO.File]::ReadAllText($cardPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
   $card.data.name='Round Turn Battle Simulator'
-  $card.data.description='Python battle_sim_poc의 1 대 1 엔진과 38종 다중 초상화 전투 연출을 구현한 독립 RisuAI 모듈입니다.'
+  $card.data.description='35종 공개 스킬과 개발자 테스트 17종, NG+ AI, 자유 장착·프리셋, 캐릭터별 사진과 빠른 진행을 지원하는 RisuAI Lua POC입니다.'
   $card.data.first_mes='전투 시뮬레이터입니다. 아래 패널에서 상대를 선택하거나 `/battle`을 입력하세요.'
   $card.data.creator='BattleSim POC Port'
-  $card.data.character_version='1.2.0'
+  $card.data.character_version='2.0.0'
   $card.data.modification_date=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   if(-not $card.data.extensions.risuai){$card.data.extensions|Add-Member -NotePropertyName risuai -NotePropertyValue ([pscustomobject]@{})}
   $background=[IO.File]::ReadAllText($css,[Text.Encoding]::UTF8)
@@ -71,5 +71,13 @@ try{
 
   if(Test-Path -LiteralPath $output){Remove-Item -LiteralPath $output -Force}
   [IO.Compression.ZipFile]::CreateFromDirectory($temp,$output,[IO.Compression.CompressionLevel]::Optimal,$false)
-}finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
+}finally{
+  if(Test-Path -LiteralPath $temp){
+    $resolvedCleanup=(Resolve-Path -LiteralPath $temp).Path
+    $expectedCleanup=[IO.Path]::GetFullPath($temp)
+    $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    if($resolvedCleanup -ne $expectedCleanup -or -not $resolvedCleanup.StartsWith($tempRoot,[StringComparison]::OrdinalIgnoreCase) -or ([IO.Path]::GetFileName($resolvedCleanup) -notmatch '^battle-sim-[0-9a-f]{32}$')){throw 'Unsafe temporary cleanup path'}
+    Remove-Item -LiteralPath $resolvedCleanup -Recurse -Force
+  }
+}
 Get-Item -LiteralPath $output|Select-Object FullName,Length,LastWriteTime

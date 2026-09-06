@@ -1,0 +1,807 @@
+<div class="bsim-panel bsim-setup">
+  <header class="bsim-header">
+    <div>
+      <span class="bsim-kicker">
+        BATTLE SIM · SKILLS
+      </span>
+      <h3>
+        대전 준비
+      </h3>
+    </div>
+    <span class="bsim-status">
+      35 SKILLS + NG+
+    </span>
+  </header>
+  <div class="bsim-setup-columns">
+    <section class="bsim-settings">
+      <h4>
+        대전 캐릭터
+      </h4>
+      <p>
+        이름과 사진 에셋 접두사를 직접 지정할 수 있습니다.
+      </p>
+      <div class="bsim-config-row">
+        <b>
+          플레이어
+        </b>
+        <button class="bsim-chip" risu-btn="bs;edit;playerName">
+          Player
+        </button>
+        <button class="bsim-chip" risu-btn="bs;edit;playerKey">
+          에셋: player
+        </button>
+      </div>
+      <div class="bsim-config-row">
+        <b>
+          상대
+        </b>
+        <button class="bsim-chip" risu-btn="bs;edit;enemyName">
+          균형 잡힌 병사
+        </button>
+        <button class="bsim-chip" risu-btn="bs;edit;enemyKey">
+          에셋: balanced_soldier
+        </button>
+      </div>
+      <details>
+        <summary>
+          기존 캐릭터 선택
+        </summary>
+        <div class="bsim-chip-list">
+          <button class="bsim-chip" risu-btn="bs;character;rookie_cycle">
+            훈련생
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;rookie_guard">
+            초보 가드
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;reckless_raider">
+            무모한 습격자
+          </button>
+          <button class="bsim-chip is-selected" risu-btn="bs;character;balanced_soldier">
+            균형 잡힌 병사
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;veteran_guard">
+            베테랑 가드
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;cautious_hunter">
+            신중한 사냥꾼
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;pressure">
+            압박가
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;adaptive">
+            적응형 전사
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;tactical_evaluator">
+            전술 평가자
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;weighted_analyst">
+            가중 분석가
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;regret_duelist">
+            후회 결투가
+          </button>
+          <button class="bsim-chip" risu-btn="bs;character;executor">
+            처형자
+          </button>
+        </div>
+      </details>
+      <h4>
+        상대 AI
+      </h4>
+      <div class="bsim-chip-list">
+        <button class="bsim-chip is-selected" risu-btn="bs;ai;existing">
+          기존 AI
+        </button>
+        <button class="bsim-chip" risu-btn="bs;ai;ng_plus">
+          NG+ AI
+        </button>
+      </div>
+      <div class="bsim-chip-list">
+        <button class="bsim-chip" risu-btn="bs;policy;rookie_cycle">
+          훈련생 · 쉬움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;rookie_guard">
+          초보 가드 · 쉬움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;reckless_raider">
+          무모한 습격자 · 쉬움
+        </button>
+        <button class="bsim-chip is-selected" risu-btn="bs;policy;balanced_soldier">
+          균형 잡힌 병사 · 보통
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;veteran_guard">
+          베테랑 가드 · 보통
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;cautious_hunter">
+          신중한 사냥꾼 · 보통
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;pressure">
+          압박가 · 어려움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;adaptive">
+          적응형 전사 · 어려움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;tactical_evaluator">
+          전술 평가자 · 어려움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;weighted_analyst">
+          가중 분석가 · 매우 어려움
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;regret_duelist">
+          후회 결투가 · 매우 어려움*
+        </button>
+        <button class="bsim-chip" risu-btn="bs;policy;executor">
+          처형자 · 매우 어려움
+        </button>
+      </div>
+      <p class="bsim-hint">
+        초급 3종 AI는 기존 스킬 사용 순서를 따릅니다. 나머지 AI는 결정한 행동에서 사용 가능한 장착 스킬을 선택합니다.
+      </p>
+      <h4>
+        연출
+      </h4>
+      <div class="bsim-chip-list">
+        <button class="bsim-chip" risu-btn="bs;fast">
+          빠른 진행: 꺼짐
+        </button>
+        <button class="bsim-chip" risu-btn="bs;photos">
+          스킬 사진: 꺼짐
+        </button>
+      </div>
+      <p class="bsim-hint">
+        기본 연출 속도는 기존과 같습니다. 스킬 사진을 추가한 뒤 스킬 사진을 켜세요.
+      </p>
+    </section>
+    <section class="bsim-deck-editor">
+      <h4>
+        덱 구성
+      </h4>
+      <div class="bsim-chip-list">
+        <button class="bsim-chip is-selected" risu-btn="bs;side;player">
+          플레이어 덱
+        </button>
+        <button class="bsim-chip" risu-btn="bs;side;enemy">
+          상대 덱
+        </button>
+      </div>
+      <p>
+        장착 0 / 5 · 제어·결정기 각 1개까지
+      </p>
+      <div class="bsim-equipped">
+        <span>
+          빈 스킬 장착 상태
+        </span>
+      </div>
+      <details>
+        <summary>
+          프리셋 선택 · 현재 덱 교체
+        </summary>
+        <div class="bsim-preset-list">
+          <button class="bsim-chip" risu-btn="bs;preset;empty">
+            빈 장착
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;basic">
+            기본 3종
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;balanced">
+            균형형 · 공수 전환
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;aggro">
+            공격 중심 · 속공
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;sustain">
+            회복 중심 · 소모전
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;fortress">
+            방어 중심 · 요새
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;counter">
+            카운터 · 도발과 응징
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;light_combo">
+            연계 입문 · 준비 후 타격
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;precision_combo">
+            정밀 연계 · 판정 보정 공격
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;big_combo">
+            대형 연계 · 결전포
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;economy">
+            자원 운용 · 할인과 재사용
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;break_execute">
+            브레이크 · 압박과 처형
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;debuff">
+            디버프 · 판정 우위 유지
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;disrupt">
+            준비 견제 · 자원 압박
+          </button>
+          <button class="bsim-chip" risu-btn="bs;preset;comeback">
+            역전형 · 배수진
+          </button>
+        </div>
+      </details>
+      <div class="bsim-chip-list bsim-tabs">
+        <button class="bsim-chip is-selected" risu-btn="bs;tab;skills">
+          스킬 35종
+        </button>
+        <button class="bsim-chip" risu-btn="bs;tab;developer">
+          개발자 · 테스트 17종
+        </button>
+      </div>
+      <div class="bsim-catalog">
+        <article class="bsim-skill-card">
+          <b>
+            힘주어 치기
+          </b>
+          <p>
+            이번 공격이 주는 HP 피해 20% 증가. 피해가 없으면 효과 없음.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;rookie_power_strike">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;rookie_power_strike">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            자세 정비
+          </b>
+          <p>
+            이번 방어로 얻는 HP 회복량 50% 증가. 회복이 없으면 효과 없음.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;rookie_recovery_form">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;rookie_recovery_form">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            안전한 발놀림
+          </b>
+          <p>
+            이번 회피 중 받는 HP 피해 20% 감소. 다음 턴에는 유지되지 않음.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;rookie_safe_footwork">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;rookie_safe_footwork">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            거리 확보
+          </b>
+          <p>
+            이번 회피 중 자신에게 쌓이는 BRK 20% 감소. HP 피해는 줄이지 않음.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;rookie_create_distance">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;rookie_create_distance">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            턱 당기기
+          </b>
+          <p>
+            이번 공격 중 받는 HP 피해 20% 감소. 다음 공격까지 보호하지 않음.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;rookie_tuck_chin">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;rookie_tuck_chin">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            묵직한 한 방
+          </b>
+          <p>
+            이번 공격의 기본 HP 피해가 있으면 피해 +6.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m01">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m01">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            단단한 가드
+          </b>
+          <p>
+            이번 턴 받는 HP 피해 30% 감소.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m02">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m02">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            호흡 정리
+          </b>
+          <p>
+            시작 HP 70 이하. 결과 후 HP 10 회복, BRK 8 감소. HP 0에서는 회복 불가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m03">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m03">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            발판 잡기
+          </b>
+          <p>
+            BRK 6 감소. 다음 턴 공격 강화 스킬 비용 10 감소(최소 8). 준비·회복·제어에는 할인 불가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m04">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m04">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            힘 모으기
+          </b>
+          <p>
+            다음 턴 공격 HP 피해 +8. 한 턴 후 만료되는 제거 가능한 준비.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m05">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m05">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            연결 타격
+          </b>
+          <p>
+            공격 HP 피해 +5. 힘 모으기가 있으면 +3 추가(준비의 +8 포함 총 +16).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m06">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m06">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            준비 끊기
+          </b>
+          <p>
+            상대에게 준비가 있을 때 선택. 결과 후 가장 최근 준비 1개 제거.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m07">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m07">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            중심 잡기
+          </b>
+          <p>
+            이번 턴 자기 주사위 최소 3.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m08">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m08">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            발놀림 흐트리기
+          </b>
+          <p>
+            이번 주사위 비교 승리 시 상대의 다음 턴 주사위 최대 4.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m09">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m09">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            숨통 조이기
+          </b>
+          <p>
+            시작 상대 BRK 50 이상. 이번 공격의 기본 BRK 증가가 있으면 +10.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;m10">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;m10">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            가드 압박
+          </b>
+          <p>
+            상대가 이번 턴 방어하면 공격 HP 피해 +8, BRK 증가 +6. 기본 변화가 있어야 적용.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u01">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u01">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            받아치기
+          </b>
+          <p>
+            받는 HP 피해 25% 감소. 상대 공격 + 자기 주사위 승리 시 결과 후 상대 HP 8 감소.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u02">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u02">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            재정비
+          </b>
+          <p>
+            시작 HP 50 이하. 결과 후 HP 14 회복, 가장 오래된 제거 가능 디버프 1개 정화.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u03">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u03">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            속행 준비
+          </b>
+          <p>
+            다음 턴 공격 강화 스킬 비용 8 감소(최소 8), 사용 CD 1 감소(최소 2). 결정기 CD는 감소 불가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u04">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u04">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            약점 포착
+          </b>
+          <p>
+            다음 턴 공격 HP 피해 +10. 한 턴 후 만료되는 제거 가능한 준비.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u05">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u05">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            꿰뚫기
+          </b>
+          <p>
+            공격 HP 피해 +7. 약점 포착 준비가 있으면 이번 주사위 최소 4(합계 피해 +17).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u06">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u06">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            흐름 절단
+          </b>
+          <p>
+            상대에게 준비가 있을 때 선택. 결과 후 최신 준비 1개 제거, 상대 STA 6 감소.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u07">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u07">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            측면 몰기
+          </b>
+          <p>
+            이번 주사위 비교 승리 시 상대는 다음 턴 회피 선택 불가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u08">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u08">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            침착한 판정
+          </b>
+          <p>
+            이번 주사위 최소 4. 대신 이번 턴 자신이 주는 HP 피해 20% 감소.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u09">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u09">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            브레이크 러시
+          </b>
+          <p>
+            시작 상대 BRK 65 이상·자기 BRK 50 이하. 공격 HP 피해 +10, BRK 증가 +12.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;u10">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;u10">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            분쇄 타격
+          </b>
+          <p>
+            이번 공격 HP 피해 +12. 이번 턴 받는 HP 피해 20% 증가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h01">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h01">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            철벽 자세
+          </b>
+          <p>
+            이번 턴 받는 HP 피해 50% 감소. 다음 턴 공격 선택 불가(정화 불가).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h02">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h02">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            마지막 호흡
+          </b>
+          <p>
+            시작 HP 30 이하·다운 1회 이상. 결과 후 HP 22 회복, BRK 15 감소. HP 0에서는 회복 불가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h03">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h03">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            결전 호흡
+          </b>
+          <p>
+            다음 턴 공격 강화 스킬 비용 12 감소(최소 8). 전력 장전을 쓰면 할인만 한 턴 연장(1회).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h04">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h04">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            전력 장전
+          </b>
+          <p>
+            다음 턴 공격 HP 피해 +10. 이번 턴 받는 HP 피해 20% 증가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h05">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h05">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            결전의 일격
+          </b>
+          <p>
+            전력 장전 보유·시작 자기 BRK 60 이하. 공격 HP 피해 +12, 주사위 최소 4. 다음 턴 스킬 사용 불가(정화 불가).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h06">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h06">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            연결고리 파괴
+          </b>
+          <p>
+            상대에게 준비가 있을 때 선택. 결과 후 최신 준비 1개 제거, 상대 STA 12 감소.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h07">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h07">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            도발 압박
+          </b>
+          <p>
+            시작 자기 BRK 50 이하. 상대의 다음 턴 행동을 공격으로 강제.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h08">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h08">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            승부수
+          </b>
+          <p>
+            시작 HP 40 이하. 이번 주사위 6 고정. 다음 턴 받는 HP 피해 25% 증가(정화 불가).
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h09">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h09">
+              장착
+            </button>
+          </div>
+        </article>
+        <article class="bsim-skill-card">
+          <b>
+            한계 돌파
+          </b>
+          <p>
+            시작 상대 HP 30 이하·BRK 70 이상·자기 STA 40 이상. 결과 후 상대 HP 12 감소, 살아 있으면 BRK 10 증가.
+          </p>
+          <div class="bsim-card-controls">
+            <button class="bsim-chip" risu-btn="bs;inspect;h10">
+              설명
+            </button>
+            <button class="bsim-chip" risu-btn="bs;equip;h10">
+              장착
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+  <div class="bsim-setup-footer">
+    <button class="bsim-chip" risu-btn="bs;start">
+      이 설정으로 새 대전 시작
+    </button>
+    <button class="bsim-chip" risu-btn="bs;back">
+      진행 중인 경기로 돌아가기
+    </button>
+  </div>
+</div>

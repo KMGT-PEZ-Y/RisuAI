@@ -94,7 +94,10 @@ if (brackets.length) {
 const blocks = [];
 for (const token of tokens) {
   if (["function", "if", "for", "while", "repeat"].includes(token.value)) {
-    blocks.push(token);
+    blocks.push({ ...token, awaitingDo: token.value === 'for' || token.value === 'while' });
+  } else if (token.value === 'do') {
+    if (blocks.at(-1)?.awaitingDo) blocks.at(-1).awaitingDo = false;
+    else blocks.push(token);
   } else if (token.value === "until") {
     const open = blocks.pop();
     if (!open || open.value !== "repeat") {
@@ -117,13 +120,15 @@ const requiredFragments = [
   "local RESULT_TABLE",
   "local GROGGY_TABLE",
   "local function setPresentation",
-  "local function advancePresentation",
+  "function B.step",
+  "function B.ng",
+  "function B.migrate",
   "{{raw::",
   "player.png",
   "bsim-resolution",
   "listenEdit('editDisplay'",
   "onStart=function",
-  "onButtonClick=function",
+  "onButtonClick=async",
 ];
 
 for (const fragment of requiredFragments) {

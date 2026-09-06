@@ -1,0 +1,34 @@
+/* Desktop skill setup and live tooltips; legacy animation timing stays unchanged. */
+.bsim-panel.bsim-setup{width:min(100%,1100px)}
+.bsim-panel .bsim-chip{border:1px solid #4a5268;background:#222a3c;color:#eaf0ff;border-radius:8px;padding:9px 12px;cursor:pointer;font-size:13px;line-height:1.4;text-align:left}
+.bsim-panel .bsim-chip.is-selected{background:#304c61;border-color:#6edbc7;color:#d7fff2}
+.bsim-panel .bsim-chip:disabled{opacity:.42;cursor:not-allowed}
+.bsim-panel .bsim-chip:focus-visible{outline:2px solid #f0cb81;outline-offset:2px}
+.bsim-chip-list,.bsim-equipped,.bsim-card-controls,.bsim-setup-footer{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.bsim-setup-columns{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(360px,1.4fr);gap:20px}
+.bsim-settings,.bsim-deck-editor{min-width:0;background:#111a28;border:1px solid #303d50;border-radius:12px;padding:16px}
+.bsim-panel h4{font-size:16px;color:#eaf0ff;margin:16px 0 10px}
+.bsim-panel p{font-size:13px;line-height:1.6;color:#c0cbdc}
+.bsim-panel details{margin:12px 0;border:1px solid #344155;border-radius:8px;padding:10px}
+.bsim-panel summary{cursor:pointer;color:#cedbf0;font-size:13px}
+.bsim-config-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0}
+.bsim-config-row>b{width:100%;font-size:12px;color:#96aac2}
+.bsim-preset-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.bsim-catalog{max-height:470px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px}
+.bsim-skill-card{background:#202a3c;border:1px solid #354358;border-radius:9px;padding:12px;min-width:0}
+.bsim-skill-card.is-equipped{border-color:#6edbc7}
+.bsim-skill-card>b{color:#f1f4fc;font-size:14px}
+.bsim-skill-card>p{font-size:12px;min-height:54px;margin:8px 0}
+.bsim-card-controls .bsim-chip{font-size:12px;padding:5px 9px}
+.bsim-skill-detail{display:flex;align-items:flex-start;gap:14px;white-space:normal;border:1px solid #668a91;background:#162d35;color:#edf9f7;border-radius:10px;padding:16px;font-size:14px;line-height:1.85;margin:14px 0;overflow-wrap:anywhere}
+.bsim-skill-photo{width:112px;aspect-ratio:1;object-fit:contain;flex-shrink:0;border-radius:8px;background:#0c1924}
+.bsim-live-deck{background:#141e2e;border-radius:10px;padding:12px;margin:8px 0;font-size:12px;color:#b6c9df}
+.bsim-skill-name{padding:5px 8px;border:1px solid #34485b;border-radius:7px;font-size:12px;cursor:help}
+.bsim-skill-choice{display:flex;flex-direction:column;gap:6px;max-width:220px}
+.bsim-skill-choice small{font-size:11px;color:#b5c5d8;line-height:1.5}
+.bsim-skill-selection{padding:12px;background:#111b2b;border-radius:12px;margin-top:12px}
+.bsim-own-status,.bsim-thinking{padding:14px;background:#283744;border-radius:9px;margin:12px 0;color:#e2f5ed;font-size:13px}
+.bsim-panel .bsim-notice{border:1px solid #d9a55a;background:#3b2b20;color:#ffdfac;padding:12px;border-radius:9px}
+.bsim-panel.bsim-fast *, .bsim-panel.bsim-fast *::before,.bsim-panel.bsim-fast *::after{animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important;transition-delay:0ms!important}
+.bsim-panel.bsim-fast .bsim-continue{opacity:1;pointer-events:auto;transform:none}
+@media(max-width:760px){.bsim-setup-columns{grid-template-columns:1fr}.bsim-catalog{max-height:340px}.bsim-skill-photo{width:80px}}

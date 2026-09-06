@@ -1,15 +1,38 @@
 # Battle Simulator POC
 
+## 폴더 구조와 빠른 실행
+
+2026-09-05 파일을 역할별로 분리했습니다. 프로젝트 루트에는 이 안내와 `.gitignore`만 두며, 문서의 코드 경로는 별도 표시가 없으면 프로젝트 루트 기준입니다.
+
+| 폴더 | 내용 |
+|---|---|
+| `src/` | 전투 엔진, AI, 스킬·공유 덱 데이터, 테스트베드 모델과 Tkinter UI |
+| `tests/` | 자동 단위·회귀 테스트 |
+| `experiments/` | 대전 통계 실험, NG+ 안정성·UI 검증 진입점 |
+| `docs/` | 규칙·스킬 설계, 진행 기록, 실험 결과 보고서 |
+| `scripts/` | Windows 더블클릭 실행 파일과 테스트 실행 파일 |
+| `results/` | 기존 JSON·중간 저장·자동 생성 결과. Git 제외 |
+
+- **NG+ / 30종 스킬 테스트베드:** [scripts/play_ng_plus.cmd](scripts/play_ng_plus.cmd)
+- 쉬움 적 테스트베드: [scripts/play_easy_enemies.cmd](scripts/play_easy_enemies.cmd)
+- Phase C-D 테스트베드: [scripts/play_skill_testbed.cmd](scripts/play_skill_testbed.cmd)
+- 기본 전투 UI: [scripts/play_ui.cmd](scripts/play_ui.cmd)
+- 자동 테스트: [scripts/test.cmd](scripts/test.cmd)
+
+실행 파일은 현재 작업 폴더와 관계없이 자신의 위치에서 Python 코드를 찾습니다. 실험에 직접 넘기는 상대 출력 경로는 기존처럼 **실행한 작업 폴더 기준**입니다. NG+ 실험의 기본 출력은 항상 프로젝트의 `results/ng_concepts_13000`입니다.
+
+공유 13종 덱은 `src/concept_decks.py`에 두었습니다. Lua 포팅 도구도 이 데이터를 읽으므로 실험 스크립트를 가져올 필요가 없습니다. 파일 이동 후의 검증 기록은 [docs/FOLDER_REORGANIZATION.md](docs/FOLDER_REORGANIZATION.md)에 있습니다.
+
 ## NG+ AI · M/U/H 30종 테스트베드 (2026-09-04)
 
-`play_muh_skills.cmd`를 실행하면 M/U/H 각 10종을 양측 최대 5개씩 장착하고 시험할 수 있습니다.
-`play_ng_plus.cmd`로도 같은 화면을 열 수 있습니다. Enemy AI에서 NG+를 선택하고 원하는 스킬 0~5개와 판단 충실도(0~1)를 지정한 뒤 새 경기를 시작합니다. NG+는 행동과 스킬을 함께 3턴 탐색하며 `NG+ 판단` 탭에 점수와 예상 연계를 표시합니다.
-기존 AI의 수동 입력/무작위 스킬/무스킬 모드도 유지합니다. 계산량과 검증 결과는 [NG_PLUS_AI.md](NG_PLUS_AI.md)를 참조하세요.
-30종 표, 연계·제어 제한, 판정 기준과 사용법은 [MUH_ACTIVE_SKILLS.md](MUH_ACTIVE_SKILLS.md)를 참조하세요.
+`scripts/play_muh_skills.cmd`를 실행하면 M/U/H 각 10종을 양측 최대 5개씩 장착하고 시험할 수 있습니다.
+`scripts/play_ng_plus.cmd`로도 같은 화면을 열 수 있습니다. Enemy AI에서 NG+를 선택하고 원하는 스킬 0~5개와 판단 충실도(0~1)를 지정한 뒤 새 경기를 시작합니다. NG+는 행동과 스킬을 함께 3턴 탐색하며 `NG+ 판단` 탭에 점수와 예상 연계를 표시합니다.
+기존 AI의 수동 입력/무작위 스킬/무스킬 모드도 유지합니다. 계산량과 검증 결과는 [NG_PLUS_AI.md](docs/NG_PLUS_AI.md)를 참조하세요.
+30종 표, 연계·제어 제한, 판정 기준과 사용법은 [MUH_ACTIVE_SKILLS.md](docs/MUH_ACTIVE_SKILLS.md)를 참조하세요.
 
-`ROUND_TURN_BATTLE_POC_RULEBOOK.md`와 `BASIC_RESULT_TABLE_DRAFT_V0.1.md`를 실행 가능한 형태로 옮긴 표준 라이브러리 기반 Python 테스트베드다. 현재 무스킬 1 대 1 코어 전투, 독립 행동 정책, 전략 매트릭스, 난이도별 NPC 12종 실험과 액티브 스킬 상태·예약 효과 실행기까지 구현되어 있다. 외부 패키지는 필요하지 않는다.
+`docs/ROUND_TURN_BATTLE_POC_RULEBOOK.md`와 `docs/BASIC_RESULT_TABLE_DRAFT_V0.1.md`를 실행 가능한 형태로 옮긴 표준 라이브러리 기반 Python 테스트베드다. 현재 무스킬 1 대 1 코어 전투, 독립 행동 정책, 전략 매트릭스, 난이도별 NPC 12종 실험과 액티브 스킬 상태·예약 효과 실행기까지 구현되어 있다. 외부 패키지는 필요하지 않는다.
 
-현재 진행상황, 최신 실험 결과, 알려진 문제와 다음 작업 순서는 `BATTLE_SIM_POC_PROGRESS.md`를 기준으로 한다.
+현재 진행상황, 최신 실험 결과, 알려진 문제와 다음 작업 순서는 `docs/BATTLE_SIM_POC_PROGRESS.md`를 기준으로 한다.
 
 ## 현재 상태
 
@@ -19,7 +42,7 @@
 - 완료: 표준 Player 정책 8종 × NPC 정책 12종의 96개 케이스 실험
 - 완료: Tkinter 기반 수동 플레이테스트 UI
 - 검증: 기존 Phase A-D 등 86개 + 쉬움 적 스킬·선택기·랜덤 비교 20개, 자동 테스트 총 106개 통과
-- 완료: 현재 무스킬 1 대 1 기준선의 RisuAI Lua 모듈 및 CHARX 이식
+- 완료: 스킬 52종과 NG+를 포함한 RisuAI Lua 모듈 및 CHARX v2 이식
 - 미구현: 패시브 적용 방식, 적별 난이도 보정·스킬 상위 레벨, 면역·다중 중첩 등 확장 상태이상, 다인 교대 및 확장 규칙의 Lua 동기화
 - 완료: 강화와 다중 스킬을 지원하는 액티브 스킬 스키마 확정
 - 완료: Python Phase A 데이터 모델·검증기, Phase B 캐릭터 스킬 상태·`TurnIntent`, Phase C timing·priority·여섯 즉시 효과 카테고리, Phase D 상태·예약 효과
@@ -27,47 +50,47 @@
 - 완료: 쉬움 적 3종의 예정형 스킬 선택, 공유 스킬 5종, 동일 장착 랜덤 Player와 적별 1,000경기 비교, 수동 플레이 UI
 - 다음 작업: 쉬움 적 패턴 및 NG+ 컨셉 덱의 실제 플레이·난이도·스킬 효용 검증, 수치 조정
 
-확정 스키마, 효과 카테고리, 적용 방식, 조건식과 단계별 구현 TODO는 `ACTIVE_SKILL_SCHEMA.md`를 기준으로 한다.
+확정 스키마, 효과 카테고리, 적용 방식, 조건식과 단계별 구현 TODO는 `docs/ACTIVE_SKILL_SCHEMA.md`를 기준으로 한다.
 
 2026-09-03: 스킬 자동 선택 AI와 관련 설정·전용 테스트·설계 문서를 롤백했다.
 이후 쉬움 적 3종과 랜덤 Player에 한정하여 새 선택기를 구현했다. 기본 설정은 여전히 자동 시전 없음이며, 새 테스트베드에서 명시적으로 선택기를 활성화한다.
 Phase A-D 실행기와 Player 수동 스킬 테스트베드는 유지한다.
-`phase_e_skill_sets.py`의 3레벨 예제 스킬 3종과 성장 비교용 장착 데이터는 선택 알고리즘과 독립적인 데이터로만 보존했다.
+`src/phase_e_skill_sets.py`의 3레벨 예제 스킬 3종과 성장 비교용 장착 데이터는 선택 알고리즘과 독립적인 데이터로만 보존했다.
 
 ## 실행
 
 ### 쉬움 적 스킬 플레이테스트
 
-`play_easy_enemies.cmd`를 더블클릭한다. Enemy 3종을 선택하고 Player도 새 스킬 5종 중 최대 3개를 장착할 수 있다. `적과 같은 장착으로 새 경기` 버튼으로 동일 장착 비교가 가능하다.
+`scripts/play_easy_enemies.cmd`를 더블클릭한다. Enemy 3종을 선택하고 Player도 새 스킬 5종 중 최대 3개를 장착할 수 있다. `적과 같은 장착으로 새 경기` 버튼으로 동일 장착 비교가 가능하다.
 
 ```powershell
-.\projects\battle-sim-poc\play_easy_enemies.cmd
+.\projects\battle-sim-poc\scripts\play_easy_enemies.cmd
 ```
 
-합의한 수치·조건·일정·난수·실패 처리는 `EASY_ENEMY_SKILLS.md`, 적별 1,000경기 결과는 `EASY_ENEMY_PLAYTEST_RESULTS.md`에 기록한다. 랜덤 Player는 적과 같은 세 스킬을 1레벨로 장착하며, 행동을 고른 뒤 사용 가능한 스킬과 미사용 중 균등 선택한다.
+합의한 수치·조건·일정·난수·실패 처리는 `docs/EASY_ENEMY_SKILLS.md`, 적별 1,000경기 결과는 `docs/EASY_ENEMY_PLAYTEST_RESULTS.md`에 기록한다. 랜덤 Player는 적과 같은 세 스킬을 1레벨로 장착하며, 행동을 고른 뒤 사용 가능한 스킬과 미사용 중 균등 선택한다.
 
 재실행:
 
 ```powershell
-& "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -X utf8 .\projects\battle-sim-poc\run_easy_enemy_simulation.py --matches 1000 --seed 20260903 --json projects/battle-sim-poc/results/easy_enemies_1000.json --report projects/battle-sim-poc/EASY_ENEMY_PLAYTEST_RESULTS.md
+& "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -X utf8 .\projects\battle-sim-poc\experiments\run_easy_enemy_simulation.py --matches 1000 --seed 20260903 --json projects/battle-sim-poc/results/easy_enemies_1000.json --report projects/battle-sim-poc/docs/EASY_ENEMY_PLAYTEST_RESULTS.md
 ```
 
 ### 플레이테스트 UI
 
-탐색기에서 `projects\battle-sim-poc\play_ui.cmd`를 더블클릭하거나 저장소 루트에서 실행한다.
+탐색기에서 `projects\battle-sim-poc\scripts\play_ui.cmd`를 더블클릭하거나 저장소 루트에서 실행한다.
 
 ```powershell
-.\projects\battle-sim-poc\play_ui.cmd
+.\projects\battle-sim-poc\scripts\play_ui.cmd
 ```
 
 NPC 12종과 난수 시드를 선택한 뒤 공격·방어·회피 버튼으로 직접 플레이할 수 있다. UI는 양측 HP/스태미너/브레이크, 다운·그로기, 라운드와 결과표 로그를 표시한다. 다운 대기나 플레이어 그로기처럼 선택할 수 없는 턴은 다음 선택 시점까지 자동 진행한다.
 
 ### Phase C-D 스킬 테스트베드 UI
 
-탐색기에서 `projects\battle-sim-poc\play_skill_testbed.cmd`를 더블클릭하거나 저장소 루트에서 실행한다.
+탐색기에서 `projects\battle-sim-poc\scripts\play_skill_testbed.cmd`를 더블클릭하거나 저장소 루트에서 실행한다.
 
 ```powershell
-.\projects\battle-sim-poc\play_skill_testbed.cmd
+.\projects\battle-sim-poc\scripts\play_skill_testbed.cmd
 ```
 
 Player는 Phase C 즉시 효과 8종과 Phase D 상태·예약 효과 6종, 총 14종 중 최대 4개를 경기 시작 전에 장착하고 매 턴 기본 행동과 사용할 스킬을 함께 선택한다. Enemy는 선택한 기존 행동 AI만 사용하며 스킬 로드아웃은 항상 비어 있다. UI는 스킬 사용 가능 여부, 현재 비용, 쿨다운, 남은 횟수, 양측 상태·예약 효과, 원본·최종 주사위와 timing·priority·조건 실패·효과 적용 전후 값을 표시한다.
@@ -83,21 +106,21 @@ Phase D 예제는 `셰이킹 페인트`, `오픈 가드`, `포커스드 가드`,
 PowerShell에서 저장소 루트를 기준으로 실행한다.
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --matches 100000 --seed 20260825
+.\projects\battle-sim-poc\scripts\run.cmd --matches 100000 --seed 20260825
 ```
 
-`run.cmd`는 PowerShell 스크립트 실행 정책의 영향을 받지 않는다. Codex 작업공간에 포함된 실제 Python을 우선 사용하며, 해당 환경이 없을 때만 시스템 Python을 찾는다. 이 순서는 Windows의 Microsoft Store용 `python` 앱 실행 별칭이 잘못 선택되는 문제를 방지한다.
+`scripts/run.cmd`는 PowerShell 스크립트 실행 정책의 영향을 받지 않는다. Codex 작업공간에 포함된 실제 Python을 우선 사용하며, 해당 환경이 없을 때만 시스템 Python을 찾는다. 이 순서는 Windows의 Microsoft Store용 `python` 앱 실행 별칭이 잘못 선택되는 문제를 방지한다.
 
 집계 결과를 JSON으로 함께 저장하려면:
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --matches 100000 --seed 20260825 --json projects/battle-sim-poc/results/baseline.json
+.\projects\battle-sim-poc\scripts\run.cmd --matches 100000 --seed 20260825 --json projects/battle-sim-poc/results/baseline.json
 ```
 
 특정 시드의 단일 경기를 턴별로 확인하려면:
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --trace-seed 12345
+.\projects\battle-sim-poc\scripts\run.cmd --trace-seed 12345
 ```
 
 상세 기록은 단순 상태 덤프가 아니라 각 턴의 행동과 주사위, 판정 컨셉, 자원 증감, 완전 그로기, 다운·기상 및 인터벌을 한국어 문장으로 해설한다.
@@ -105,19 +128,19 @@ PowerShell에서 저장소 루트를 기준으로 실행한다.
 서로 다른 행동 전략을 대전시키려면:
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --matches 10000 --player-strategy pressure --enemy-strategy adaptive
+.\projects\battle-sim-poc\scripts\run.cmd --matches 10000 --player-strategy pressure --enemy-strategy adaptive
 ```
 
 여러 전략의 모든 순서쌍을 한 번에 비교하려면:
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --matrix --matches 5000 --strategies random,attack,evade,cycle,defensive,pressure,adaptive,guard_evade_ratio,guard_attack_ratio,guard_mixed_ratio,guard_evade_adaptive,guard_attack_adaptive,guard_mixed_adaptive --json projects/battle-sim-poc/results/strategy_matrix.json
+.\projects\battle-sim-poc\scripts\run.cmd --matrix --matches 5000 --strategies random,attack,evade,cycle,defensive,pressure,adaptive,guard_evade_ratio,guard_attack_ratio,guard_mixed_ratio,guard_evade_adaptive,guard_attack_adaptive,guard_mixed_adaptive --json projects/battle-sim-poc/results/strategy_matrix.json
 ```
 
 표준 플레이어 정책 8개와 난이도별 NPC 정책 12개의 96개 대전을 실행하려면:
 
 ```powershell
-.\projects\battle-sim-poc\run.cmd --npc-roster --matches 2000 --seed 20260831 --json projects/battle-sim-poc/results/npc_roster_8x12.json
+.\projects\battle-sim-poc\scripts\run.cmd --npc-roster --matches 2000 --seed 20260831 --json projects/battle-sim-poc/results/npc_roster_8x12.json
 ```
 
 NPC 로스터는 쉬움·보통·어려움·매우 어려움마다 3개 정책을 포함한다. 각 케이스는 승패율, 평균·중앙값·P95 턴, 평균 라운드, 5라운드 이내 종료율과 10라운드 초과율을 기록한다.
@@ -149,7 +172,7 @@ NPC 로스터는 쉬움·보통·어려움·매우 어려움마다 3개 정책�
 자동 테스트:
 
 ```powershell
-python -m unittest discover -s projects/battle-sim-poc -p "test_*.py" -v
+python -m unittest discover -s projects/battle-sim-poc/tests -t projects/battle-sim-poc -p "test_*.py" -v
 ```
 
 ## 포함된 규칙
@@ -177,10 +200,10 @@ python -m unittest discover -s projects/battle-sim-poc -p "test_*.py" -v
 - 행동 선택 횟수
 - 27개 기본 결과 및 그로기 전용 결과의 사용 횟수
 
-무스킬 기준선, C-D 효과 시험, 쉬움 적 스킬 시험은 별도 진입점으로 유지한다. 구현 상태와 인수인계 정보는 `BATTLE_SIM_POC_PROGRESS.md`에 유지한다.
+무스킬 기준선, C-D 효과 시험, 쉬움 적 스킬 시험은 별도 진입점으로 유지한다. 구현 상태와 인수인계 정보는 `docs/BATTLE_SIM_POC_PROGRESS.md`에 유지한다.
 
 ## RisuAI Lua 이식본
 
-현재 무스킬 1 대 1 기준선은 `projects/battle-sim-lua`에 이식되어 있다. `BattleSim-RisuAI.charx`를 RisuAI에서 import할 수 있으며, Lua 구현 범위와 재빌드 방법은 해당 디렉터리의 `README.md`를 참조한다. 향후 스킬·상태이상·다인전 규칙은 Python 기준 구현에서 먼저 검증한 뒤 Lua 버전에 동기화한다.
+현재 스킬 52종과 NG+를 포함한 Lua POC v2는 `projects/battle-sim-lua`에 이식되어 있다. `BattleSim-RisuAI.charx`를 RisuAI에서 import할 수 있으며, 구현 범위와 재빌드 방법은 [Lua 사용 안내](../battle-sim-lua/README.md)를 참조한다. Lua 데이터 추출·비교 도구는 이 프로젝트의 `src/`를 참조한다.
 
-`results/`의 JSON은 재생성 가능한 로컬 실험 산출물이므로 Git에서 제외된다. 공유 기준선은 실행 시드·반복 횟수와 요약 수치를 `BATTLE_SIM_POC_PROGRESS.md`에 기록한다.
+`results/`의 JSON은 재생성 가능한 로컬 실험 산출물이므로 Git에서 제외된다. 공유 기준선은 실행 시드·반복 횟수와 요약 수치를 `docs/BATTLE_SIM_POC_PROGRESS.md`에 기록한다.
