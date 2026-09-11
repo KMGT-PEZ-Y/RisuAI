@@ -1,0 +1,372 @@
+{
+  "integration": {
+    "asyncButtons": true,
+    "staleButtons": true,
+    "doubleSubmit": true,
+    "jsonReload": true,
+    "lastMessageOnly": true,
+    "slashCommand": true,
+    "ordinaryChatUntouched": true,
+    "resetCancel": true
+  },
+  "rules": {
+    "fuzz": {
+      "draw": 29,
+      "player": 20,
+      "enemy": 251
+    },
+    "checks": 107594,
+    "fuzzMatches": 300
+  },
+  "campaign": {
+    "style": "reader",
+    "bouts": [
+      {
+        "level": 1,
+        "opponent": 1,
+        "result": {
+          "winner": "player",
+          "method": "KO"
+        },
+        "turns": 5,
+        "health": 88,
+        "score": [
+          20,
+          17
+        ]
+      },
+      {
+        "level": 2,
+        "opponent": 2,
+        "result": {
+          "winner": "player",
+          "method": "KO"
+        },
+        "turns": 4,
+        "health": 73,
+        "score": [
+          10,
+          8
+        ]
+      },
+      {
+        "level": 3,
+        "opponent": 3,
+        "result": {
+          "winner": "player",
+          "method": "KO"
+        },
+        "turns": 3,
+        "health": 81,
+        "score": [
+          10,
+          8
+        ]
+      },
+      {
+        "level": 4,
+        "opponent": 4,
+        "result": {
+          "winner": "player",
+          "method": "KO"
+        },
+        "turns": 5,
+        "health": 90,
+        "score": [
+          20,
+          16
+        ]
+      },
+      {
+        "level": 5,
+        "opponent": 5,
+        "result": {
+          "winner": "player",
+          "method": "KO"
+        },
+        "turns": 5,
+        "health": 98,
+        "score": [
+          20,
+          17
+        ]
+      }
+    ],
+    "seconds": 2
+  },
+  "refreshes": 145,
+  "layouts": [
+    {
+      "name": "home",
+      "width": 1100,
+      "panel": true,
+      "buttons": 6,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "gym",
+      "width": 1100,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "plan",
+      "width": 1100,
+      "panel": true,
+      "buttons": 15,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "planned",
+      "width": 1100,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 13,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "replay",
+      "width": 1100,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "reset",
+      "width": 1100,
+      "panel": true,
+      "buttons": 4,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "help",
+      "width": 1100,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "corner",
+      "width": 1100,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "result",
+      "width": 1100,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "champion",
+      "width": 1100,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "home",
+      "width": 390,
+      "panel": true,
+      "buttons": 6,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "gym",
+      "width": 390,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "plan",
+      "width": 390,
+      "panel": true,
+      "buttons": 15,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "planned",
+      "width": 390,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 13,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "replay",
+      "width": 390,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "reset",
+      "width": 390,
+      "panel": true,
+      "buttons": 4,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "help",
+      "width": 390,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "corner",
+      "width": 390,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "result",
+      "width": 390,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "champion",
+      "width": 390,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "home",
+      "width": 320,
+      "panel": true,
+      "buttons": 6,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "gym",
+      "width": 320,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "plan",
+      "width": 320,
+      "panel": true,
+      "buttons": 15,
+      "disabled": 3,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "planned",
+      "width": 320,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 13,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "replay",
+      "width": 320,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "reset",
+      "width": 320,
+      "panel": true,
+      "buttons": 4,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "help",
+      "width": 320,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "corner",
+      "width": 320,
+      "panel": true,
+      "buttons": 5,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "result",
+      "width": 320,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    },
+    {
+      "name": "champion",
+      "width": 320,
+      "panel": true,
+      "buttons": 3,
+      "disabled": 0,
+      "overflow": false,
+      "broken": false
+    }
+  ],
+  "browserErrors": [],
+  "domClickFlow": true
+}

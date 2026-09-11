@@ -1,0 +1,165 @@
+<style>.x-risu-pa-panel{box-sizing:border-box;width:100%;max-width:850px;margin:12px auto;padding:20px;border:1px solid #41414c;border-radius:12px;background:#19191f;color:#efeff4;font:15px/1.6 system-ui,sans-serif;overflow-wrap:anywhere}.x-risu-pa-panel *{box-sizing:border-box}.x-risu-pa-panel header{margin-bottom:16px}.x-risu-pa-panel h3{margin:4px 0;font-size:23px;color:#fff}.x-risu-pa-brand{color:#ffa2a2;font-size:12px;font-weight:750;letter-spacing:.12em}.x-risu-pa-panel p{margin:8px 0}.x-risu-pa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.x-risu-pa-card{padding:14px;background:#24242d;border:1px solid #41414c;border-radius:8px;margin-bottom:10px}.x-risu-pa-card strong{display:block;font-size:16px}.x-risu-pa-button{display:inline-block;max-width:100%;white-space:normal;padding:10px 15px;margin:5px 6px 5px 0;border:1px solid #92595f;border-radius:7px;color:#fff;background:#61343b;cursor:pointer;font:inherit;line-height:1.4}.x-risu-pa-button:hover:not(:disabled){background:#81434c}.x-risu-pa-button:focus-visible{outline:3px solid #f9c487;outline-offset:2px}.x-risu-pa-button:disabled{background:#33333d;border-color:#4d4d59;color:#b8b8c4;cursor:not-allowed}.x-risu-pa-muted{display:block;color:#c1c1ce;font-size:13px}.x-risu-pa-notice{border-left:3px solid #f5b474;padding:8px 12px;background:#2d2724}.x-risu-pa-panel details{margin:10px 0}.x-risu-pa-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.x-risu-pa-panel img{margin-top:0}.x-risu-pa-panel .x-risu-bsim-panel{max-width:100%}@media(max-width:480px){.x-risu-pa-panel{padding:12px}.x-risu-pa-button{padding:10px 12px}.x-risu-pa-panel h3{font-size:21px}}
+</style><style>
+/* Shared shell and compact battle layout. No document/body overflow overrides. */
+.x-risu-bsim-panel{--bsim-ink:#f4efea;--bsim-muted:#bdb4b0;--bsim-line:#393234;--bsim-accent:#d89f0f;box-sizing:border-box;position:relative;width:min(100%,1180px);margin:8px auto;padding:12px;background:#020213;color:var(--bsim-ink);border:1px solid #770404;font:13px/1.35 system-ui,"Noto Sans KR",sans-serif;color-scheme:dark}
+.x-risu-bsim-panel *,.x-risu-bsim-panel *::before,.x-risu-bsim-panel *::after{box-sizing:border-box}
+.x-risu-bsim-panel .x-risu-bsim-header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #c90606;margin:0 0 8px;padding-bottom:8px}
+.x-risu-bsim-panel .x-risu-bsim-header h3{font-size:clamp(18px,2.4vw,26px);margin:2px 0 0;line-height:1.1;color:var(--bsim-ink)}
+.x-risu-bsim-kicker,.x-risu-bsim-log-title{font-size:10px;letter-spacing:.08em;color:#d89f0f}
+.x-risu-bsim-status{border:1px solid #d89f0f;padding:8px 16px;color:#ffd500;font:600 16px ui-monospace,monospace;white-space:nowrap}
+.x-risu-bsim-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.x-risu-bsim-arena{position:relative;min-height:0}
+.x-risu-bsim-unit{min-width:0;border:1px solid var(--bsim-line);background:#0b0a0e;padding:0 8px 8px}
+.x-risu-bsim-portrait-frame{position:relative;width:calc(100% + 16px);margin-left:-8px;aspect-ratio:16/10;max-height:clamp(160px,calc(100dvh - 560px),350px);overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 80%,#350606,#08070a 75%);border-bottom:1px solid #393234}
+.x-risu-bsim-portrait,.x-risu-bsim-cinematic-image{margin-top:0;position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center 30%;color:transparent}
+.x-risu-bsim-portrait-fallback{position:absolute;inset:0;display:grid;place-items:center;color:#726564;font-weight:800;letter-spacing:.2em}
+.x-risu-bsim-unit-enemy .x-risu-bsim-portrait,.x-risu-bsim-unit-enemy .x-risu-bsim-cinematic-image{transform:scaleX(-1)}
+.x-risu-bsim-vs{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);z-index:3;color:#c90606;text-shadow:0 2px 8px #000;font-size:clamp(20px,3vw,38px);font-weight:900;pointer-events:none}
+.x-risu-bsim-unit-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+.x-risu-bsim-unit-head b{font-size:15px;overflow-wrap:anywhere}.x-risu-bsim-unit-head small{white-space:nowrap;color:var(--bsim-muted);font-size:11px}
+.x-risu-bsim-resources{display:grid;gap:5px}
+.x-risu-bsim-meter{display:grid;grid-template-columns:32px minmax(0,1fr) 78px;align-items:center;gap:6px}
+.x-risu-bsim-meter-label{display:contents}.x-risu-bsim-meter-label span{font:11px ui-monospace,monospace;color:var(--bsim-muted)}
+.x-risu-bsim-meter-label span:last-child{grid-column:3;grid-row:1;text-align:right}
+.x-risu-bsim-meter-track{grid-column:2;grid-row:1;height:8px;background:#191516;border:1px solid #413637;overflow:hidden}
+.x-risu-bsim-meter-fill{display:block;height:100%}.x-risu-bsim-meter-hp{background:#c90606}.x-risu-bsim-meter-sta{background:#d89f0f}.x-risu-bsim-meter-brk{background:#817371}
+.x-risu-bsim-conditions{position:absolute;top:8px;left:8px;z-index:4;background:#08070add;color:#ffd500;font:700 11px ui-monospace,monospace}.x-risu-bsim-conditions:empty{display:none}
+.x-risu-bsim-float-deltas{position:absolute;bottom:8px;left:8px;display:flex;flex-wrap:wrap;gap:8px;max-width:calc(100% - 16px);z-index:4;padding:5px 8px;background:rgb(0 0 0 / 45%);border:1px solid rgb(0 0 0 / 65%);border-radius:8px;box-shadow:inset 0 0 0 1px rgb(255 255 255 / 7%),0 3px 10px rgb(0 0 0 / 15%);font:700 12px ui-monospace,monospace;animation:bsim-deltas .55s ease-out 2.9s both}
+.x-risu-bsim-float-deltas:empty{display:none}
+.x-risu-bsim-delta-positive{color:#ffd500}.x-risu-bsim-delta-negative{color:#ff8585}
+.x-risu-bsim-resolution{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:6;max-width:90%;padding:4px 10px;border:1px solid #770404;background:#020213e8;text-align:center;color:#f4efea;font:11px ui-monospace,monospace}
+.x-risu-bsim-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.x-risu-bsim-action-panel,.x-risu-bsim-skill-selection{min-width:0;border:1px solid var(--bsim-line);background:#0b0a0e;padding:8px}
+.x-risu-bsim-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.x-risu-bsim-panel .x-risu-bsim-actions .x-risu-bsim-chip{font-size:17px;font-weight:700;text-align:center;min-height:44px}
+.x-risu-bsim-panel .x-risu-bsim-rules-button{width:100%;text-align:center;margin-top:8px}
+.x-risu-bsim-panel .x-risu-bsim-skill-selection h4{font-size:13px;margin:0 0 4px}
+.x-risu-bsim-skill-selection>.x-risu-bsim-chip-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:0}
+.x-risu-bsim-skill-selection>.x-risu-bsim-chip-list>.x-risu-bsim-chip{grid-column:auto}
+.x-risu-bsim-panel .x-risu-bsim-skill-choice{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.5fr);gap:7px;align-items:center;min-width:0;padding:5px 7px;min-height:42px;text-align:left}
+.x-risu-bsim-skill-choice-title{font-size:12px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.x-risu-bsim-skill-choice-meta{display:grid;gap:2px;border-left:1px solid #514344;padding-left:7px;font-size:10px;line-height:1.3;color:var(--bsim-muted);overflow-wrap:anywhere}
+.x-risu-bsim-skill-choice.x-risu-is-selected .x-risu-bsim-skill-choice-meta{color:#eee5df;border-color:#bd7777}
+.x-risu-bsim-execute{grid-column:1/-1}.x-risu-bsim-panel .x-risu-bsim-execute>.x-risu-bsim-chip{width:100%;padding:9px;text-align:center;font-size:17px;font-weight:700;background:linear-gradient(90deg,#770404,#c90606);border-color:#c90606;color:#fff}
+.x-risu-bsim-battle .x-risu-bsim-header h3{font-size:22px}
+.x-risu-bsim-battle .x-risu-bsim-skill-selection>.x-risu-bsim-chip-list>.x-risu-bsim-chip{padding:3px 8px}
+.x-risu-bsim-battle .x-risu-bsim-live-deck{margin:4px 0;padding:4px 8px}
+.x-risu-bsim-log{margin-top:6px;max-height:52px;overflow:auto;border:1px solid var(--bsim-line);padding:4px 8px;scrollbar-width:thin;scrollbar-color:#770404 #0b0a0e}
+.x-risu-bsim-log-title{position:sticky;top:-4px;background:#020213}.x-risu-bsim-log-line{font:10px/1.4 ui-monospace,monospace;color:var(--bsim-muted)}
+.x-risu-bsim-panel .x-risu-bsim-footer{margin:5px 0 0;gap:6px}.x-risu-bsim-panel .x-risu-bsim-footer .x-risu-bsim-chip{padding:3px 8px;font-size:11px}
+.x-risu-bsim-own-status,.x-risu-bsim-thinking,.x-risu-bsim-result{padding:6px;border:1px solid #770404;color:#eee5df;font-size:12px}.x-risu-bsim-thinking,.x-risu-bsim-result{grid-column:1/-1}
+.x-risu-bsim-own-status{max-height:40px;overflow:auto;scrollbar-width:thin}
+.x-risu-bsim-asset-preload{position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}.x-risu-bsim-asset-preload img{width:1px;height:1px}
+/* Browser-managed popovers: light dismiss, Escape, one open skill, implicit
+   aria-expanded on invokers. They never submit a Lua event or restart a movie. */
+.x-risu-bsim-skill-popover{position:fixed;inset:auto 0 22px;margin:0 auto;width:min(560px,calc(100vw - 32px));max-height:45dvh;overflow:auto;padding:16px;border:1px solid #d89f0f;background:#100b0e;color:#f4efea;box-shadow:0 12px 50px #000b;font:14px/1.7 system-ui,sans-serif}
+.x-risu-bsim-skill-popover header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#d89f0f}.x-risu-bsim-panel .x-risu-bsim-skill-popover p{color:#f4efea;margin:8px 0 0;white-space:normal}.x-risu-bsim-skill-popover::backdrop{background:transparent}
+.x-risu-bsim-panel .x-risu-bsim-skill-name:has(+ .x-risu-bsim-skill-popover:popover-open){background:#770404;border-color:#ffd500}
+.x-risu-bsim-panel .x-risu-bsim-skill-name.x-risu-bsim-skill-image-button{padding:0;width:clamp(48px,5vw,64px);height:clamp(48px,5vw,64px);overflow:hidden;flex:none}
+.x-risu-bsim-skill-thumbnail{margin-top:0;display:block;width:100%;height:100%;object-fit:cover;font-size:10px;line-height:1.2;color:#eee5df}
+.x-risu-bsim-rules{position:fixed;inset:0;margin:auto;width:min(1180px,calc(100vw - 32px));height:min(820px,calc(100dvh - 48px));padding:16px;border:1px solid #770404;background:#020213;color:#f4efea;font:13px/1.4 system-ui,sans-serif}
+.x-risu-bsim-rules:popover-open{display:flex;flex-direction:column}.x-risu-bsim-rules>.x-risu-bsim-header,.x-risu-bsim-rules>p{flex:none}.x-risu-bsim-rules::backdrop{background:#020213f5}
+.x-risu-bsim-battle:has(.x-risu-bsim-rules:popover-open)>:not(.x-risu-bsim-rules){visibility:hidden}
+.x-risu-bsim-table-scroll{min-height:0;overflow:auto;scrollbar-color:#770404 #0b0a0e;scrollbar-width:thin}.x-risu-bsim-rules table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}.x-risu-bsim-rules th,.x-risu-bsim-rules td{border-bottom:1px solid #393234;padding:9px 10px;text-align:left}.x-risu-bsim-rules th{position:sticky;top:0;z-index:1;background:#240708;color:#e8ded8}.x-risu-bsim-rules tr:nth-child(even){background:#0e0b0e}.x-risu-bsim-change-plus{color:#ffd500}.x-risu-bsim-change-minus{color:#ff8585}.x-risu-bsim-change-zero{color:#bdb4b0}
+/* Every image uses the SAME 5.5s clock. Visibility steps occur at exact phase
+   boundaries; there is no crossfade between standing and cinematic layers. */
+.x-risu-bsim-transition .x-risu-bsim-standing-before{animation:bsim-standing-out 5.5s linear both}
+.x-risu-bsim-unit{--bsim-pulse-time:3.6s;--bsim-pulse-scale:1.007;--bsim-pulse-shift:.25px}
+.x-risu-bsim-pulse-strained{--bsim-pulse-time:2.6s;--bsim-pulse-scale:1.015;--bsim-pulse-shift:.5px}
+.x-risu-bsim-pulse-danger{--bsim-pulse-time:1.7s;--bsim-pulse-scale:1.028;--bsim-pulse-shift:1px}
+.x-risu-bsim-pulse-critical{--bsim-pulse-time:1s;--bsim-pulse-scale:1.045;--bsim-pulse-shift:1.7px}
+.x-risu-bsim-pulse-rest{--bsim-pulse-time:4s;--bsim-pulse-scale:1.016;--bsim-pulse-shift:.3px}
+.x-risu-bsim-pulse-still{--bsim-pulse-scale:1;--bsim-pulse-shift:0px}
+.x-risu-bsim-standing-after{transform-origin:50% 58%;animation:bsim-heartbeat var(--bsim-pulse-time) ease-in-out infinite}
+.x-risu-bsim-transition .x-risu-bsim-standing-after{animation:bsim-standing-in 5.5s linear both,bsim-heartbeat var(--bsim-pulse-time) ease-in-out 5.5s infinite}
+/* One enter/exit pair per distinct contiguous asset; merged stages hold still. */
+.x-risu-bsim-transition .x-risu-bsim-cinematic-image{opacity:0;visibility:hidden;transform-origin:50% 58%;animation:var(--bsim-enter-name,bsim-shot-in) .2s cubic-bezier(.22,.7,.3,1) var(--bsim-enter-at) both,var(--bsim-exit-name,bsim-shot-out) var(--bsim-exit-time,.2s) cubic-bezier(.22,.7,.3,1) var(--bsim-exit-at) forwards}
+.x-risu-bsim-phase-1{--bsim-enter-at:.24s;--bsim-shot-scale:.9;--bsim-shot-y:12px}
+.x-risu-bsim-phase-2{--bsim-enter-at:1.9s;--bsim-shot-scale:1.09;--bsim-shot-y:8px}
+.x-risu-bsim-phase-3{--bsim-enter-at:2.9s;--bsim-shot-scale:.92;--bsim-shot-y:10px}
+.x-risu-bsim-phase-4{--bsim-enter-at:3.8s;--bsim-shot-scale:.94;--bsim-shot-y:8px}
+.x-risu-bsim-phase-5{--bsim-enter-at:4.6s;--bsim-shot-scale:.95;--bsim-shot-y:6px}
+.x-risu-bsim-through-1{--bsim-exit-at:1.7s}.x-risu-bsim-through-2{--bsim-exit-at:2.7s}.x-risu-bsim-through-3{--bsim-exit-at:3.6s}.x-risu-bsim-through-4{--bsim-exit-at:4.4s}.x-risu-bsim-through-5{--bsim-exit-at:5s}
+.x-risu-bsim-held-start{--bsim-enter-name:bsim-shot-hold}
+.x-risu-bsim-held-end{--bsim-exit-name:bsim-shot-hide;--bsim-exit-time:0s;--bsim-exit-at:5.5s}
+.x-risu-bsim-transition .x-risu-bsim-standing-retained{animation:bsim-handoff-in 5.5s step-end both,bsim-heartbeat var(--bsim-pulse-time) ease-in-out 5.5s infinite}
+@keyframes bsim-standing-out{0%{opacity:1;visibility:visible}4.36%{opacity:0;visibility:hidden}100%{opacity:0;visibility:hidden}}
+@keyframes bsim-standing-in{0%,94.54%{opacity:0;visibility:hidden}94.55%{opacity:0;visibility:visible}100%{opacity:1;visibility:visible}}
+@keyframes bsim-shot-in{from{opacity:0;visibility:hidden;scale:var(--bsim-shot-scale);translate:0 var(--bsim-shot-y)}to{opacity:1;visibility:visible;scale:1;translate:0 0}}
+@keyframes bsim-shot-out{from{opacity:1;visibility:visible;scale:1;translate:0 0}to{opacity:0;visibility:hidden;scale:.96;translate:0 -6px}}
+@keyframes bsim-shot-hold{from,to{opacity:1;visibility:visible;scale:1;translate:0 0}}
+@keyframes bsim-shot-hide{from,to{opacity:0;visibility:hidden;scale:1;translate:0 0}}
+@keyframes bsim-handoff-in{0%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
+@keyframes bsim-deltas{0%{opacity:0;translate:0 10px;scale:.9}65%{opacity:1;translate:0 -2px;scale:1.025}100%{opacity:1;translate:0 0;scale:1}}
+@keyframes bsim-heartbeat{0%,42%,100%{scale:1;translate:0 0}12%,29%{scale:var(--bsim-pulse-scale);translate:var(--bsim-pulse-shift) 0}21%{scale:1;translate:calc(-1 * var(--bsim-pulse-shift)) 0}}
+/* Dice roll over the action phase and reveal the engine's final die at 1.6s. */
+.x-risu-bsim-dice-badge{position:absolute;top:12px;right:12px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px}
+.x-risu-bsim-dice-skill-icon{display:block;margin-top:0;box-sizing:border-box;width:44px;height:44px;object-fit:contain;border:1px solid rgb(255 255 255 / 35%);border-radius:10px;background:#250a0c;box-shadow:0 5px 16px rgb(0 0 0 / 45%);animation:bsim-skill-appear .2s ease-out .24s both}
+@keyframes bsim-skill-appear{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.x-risu-bsim-fast .x-risu-bsim-dice-skill-icon{animation:none}
+@media(prefers-reduced-motion:reduce){.x-risu-bsim-dice-skill-icon{animation:none}}
+.x-risu-bsim-unit-enemy .x-risu-bsim-dice-badge{right:auto;left:12px}
+.x-risu-bsim-die{position:relative;display:grid;place-items:center;width:44px;height:44px;border:1px solid rgb(255 255 255 / 35%);border-radius:10px;background:#250a0c;color:#fff;box-shadow:0 5px 16px rgb(0 0 0 / 45%);font:800 24px/1 ui-monospace,monospace;animation:bsim-dice-roll 1.36s cubic-bezier(.2,.65,.3,1) .24s both}
+.x-risu-bsim-die-rolling{position:absolute;inset:0;display:grid;place-items:center;animation:bsim-rolling-end 1.6s step-end both}
+.x-risu-bsim-die-rolling::before{content:'⚀';font-size:34px;animation:bsim-dice-faces .42s steps(1,end) infinite}
+.x-risu-bsim-die-value{animation:bsim-dice-reveal 1.6s step-end both}
+.x-risu-bsim-verdict{animation:bsim-dice-reveal 1.6s step-end both}
+@keyframes bsim-dice-roll{0%{opacity:0;transform:translateY(-16px) rotate(-240deg) scale(.6);filter:blur(2px)}25%{opacity:1;transform:translateY(5px) rotate(-130deg) scale(1.08)}65%{transform:translateY(-4px) rotate(30deg) scale(.95);filter:blur(.5px)}85%{transform:translateY(2px) rotate(-10deg) scale(1.03)}100%{opacity:1;transform:translateY(0) rotate(0) scale(1);filter:blur(0)}}
+@keyframes bsim-dice-faces{0%{content:'⚀'}17%{content:'⚃'}34%{content:'⚁'}51%{content:'⚅'}68%{content:'⚂'}85%{content:'⚄'}}
+@keyframes bsim-rolling-end{0%{visibility:visible}100%{visibility:hidden}}
+@keyframes bsim-dice-reveal{0%{visibility:hidden;opacity:0}100%{visibility:visible;opacity:1}}
+.x-risu-bsim-continue{grid-column:1/-1;display:flex;justify-content:center;gap:12px;padding:10px;color:#fff;background:#770404;border:1px solid #c90606;cursor:pointer;animation:bsim-ready 5.5s step-end both}
+@keyframes bsim-ready{0%{visibility:hidden;pointer-events:none}100%{visibility:visible;pointer-events:auto}}
+.x-risu-bsim-fast .x-risu-bsim-transition .x-risu-bsim-standing-before,.x-risu-bsim-fast .x-risu-bsim-transition .x-risu-bsim-cinematic-image{animation:none;visibility:hidden;opacity:0}
+.x-risu-bsim-fast .x-risu-bsim-transition .x-risu-bsim-standing-after,.x-risu-bsim-fast .x-risu-bsim-continue,.x-risu-bsim-fast .x-risu-bsim-float-deltas{animation:none;visibility:visible;opacity:1;pointer-events:auto}
+.x-risu-bsim-fast .x-risu-bsim-transition .x-risu-bsim-standing-after{animation:bsim-heartbeat var(--bsim-pulse-time) ease-in-out infinite}
+.x-risu-bsim-fast .x-risu-bsim-die,.x-risu-bsim-fast .x-risu-bsim-die-value,.x-risu-bsim-fast .x-risu-bsim-verdict{animation:none;opacity:1;visibility:visible}
+.x-risu-bsim-fast .x-risu-bsim-die-rolling{display:none}
+@media(prefers-reduced-motion:reduce){.x-risu-bsim-transition .x-risu-bsim-standing-before,.x-risu-bsim-transition .x-risu-bsim-cinematic-image{animation:none;visibility:hidden;opacity:0}.x-risu-bsim-panel .x-risu-bsim-standing-after,.x-risu-bsim-panel .x-risu-bsim-transition .x-risu-bsim-standing-after,.x-risu-bsim-continue,.x-risu-bsim-float-deltas,.x-risu-bsim-die,.x-risu-bsim-die-value,.x-risu-bsim-verdict{animation:none;visibility:visible;opacity:1;pointer-events:auto}.x-risu-bsim-die-rolling{display:none}}
+@media(min-width:761px){
+ .x-risu-bsim-battle{display:flex;flex-direction:column;max-height:calc(100dvh - 64px)}
+ .x-risu-bsim-battle>*{flex-shrink:0}
+ .x-risu-bsim-battle .x-risu-bsim-arena{flex-shrink:1;min-height:0}
+ .x-risu-bsim-battle .x-risu-bsim-unit{display:flex;flex-direction:column;min-height:0}
+ .x-risu-bsim-battle .x-risu-bsim-unit-head,.x-risu-bsim-battle .x-risu-bsim-resources{flex-shrink:0}
+ .x-risu-bsim-battle .x-risu-bsim-portrait-frame{flex-shrink:1;min-height:0;max-height:350px}
+}
+@media(max-width:760px){.x-risu-bsim-panel{padding:8px}.x-risu-bsim-grid,.x-risu-bsim-controls{gap:6px}.x-risu-bsim-portrait-frame{max-height:240px}.x-risu-bsim-panel .x-risu-bsim-actions .x-risu-bsim-chip{font-size:13px}.x-risu-bsim-skill-selection>.x-risu-bsim-chip-list{grid-template-columns:1fr}.x-risu-bsim-meter{grid-template-columns:26px minmax(0,1fr) 64px;gap:3px}.x-risu-bsim-unit-head{flex-wrap:wrap}.x-risu-bsim-status{padding:6px}.x-risu-bsim-panel .x-risu-bsim-resolution{top:58px;font-size:9px}}
+
+/* Setup catalog and shared controls. */
+.x-risu-bsim-panel.x-risu-bsim-setup{width:min(100%,1100px)}
+.x-risu-bsim-panel .x-risu-bsim-chip{border:1px solid #514344;background:#100d10;color:#eee5df;border-radius:0;padding:9px 12px;cursor:pointer;font-size:13px;line-height:1.4;text-align:left}
+.x-risu-bsim-panel .x-risu-bsim-chip.x-risu-is-selected{background:#770404;border-color:#d89f0f;color:#eee5df}
+.x-risu-bsim-panel .x-risu-bsim-chip:disabled{opacity:.42;cursor:not-allowed}
+.x-risu-bsim-panel .x-risu-bsim-chip:focus-visible{outline:2px solid #ffd500;outline-offset:2px}
+.x-risu-bsim-chip-list,.x-risu-bsim-equipped,.x-risu-bsim-card-controls,.x-risu-bsim-setup-footer{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.x-risu-bsim-setup-columns{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(360px,1.4fr);gap:20px}
+.x-risu-bsim-settings,.x-risu-bsim-deck-editor{min-width:0;background:#0b0a0e;border:1px solid #443637;border-radius:0;padding:16px}
+.x-risu-bsim-panel h4{font-size:16px;color:#eee5df;margin:16px 0 10px}
+.x-risu-bsim-panel p{font-size:13px;line-height:1.6;color:#bdb4b0}
+.x-risu-bsim-panel details{margin:12px 0;border:1px solid #443637;border-radius:0;padding:10px}
+.x-risu-bsim-panel summary{cursor:pointer;color:#eee5df;font-size:13px}
+.x-risu-bsim-config-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0}
+.x-risu-bsim-config-row>b{width:100%;font-size:12px;color:#bdb4b0}
+.x-risu-bsim-preset-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.x-risu-bsim-catalog{max-height:470px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px}
+.x-risu-bsim-skill-card{background:#161013;border:1px solid #443637;border-radius:0;padding:12px;min-width:0}
+.x-risu-bsim-skill-card.x-risu-is-equipped{border-color:#d89f0f}
+.x-risu-bsim-skill-card>b{color:#eee5df;font-size:14px}
+.x-risu-bsim-skill-card>p{font-size:12px;min-height:54px;margin:8px 0}
+.x-risu-bsim-card-controls .x-risu-bsim-chip{font-size:12px;padding:5px 9px}
+.x-risu-bsim-skill-detail{display:flex;align-items:flex-start;gap:14px;white-space:normal;border:1px solid #443637;background:#160b0d;color:#eee5df;border-radius:0;padding:16px;font-size:14px;line-height:1.85;margin:14px 0;overflow-wrap:anywhere}
+.x-risu-bsim-skill-photo{width:112px;margin-top:0;aspect-ratio:1;object-fit:contain;flex-shrink:0;border-radius:0;background:#09070a}
+
+.x-risu-bsim-panel .x-risu-bsim-chip:hover:not(:disabled){background:#351012;border-color:#c90606}
+.x-risu-bsim-panel .x-risu-bsim-chip.x-risu-is-selected{background:#770404;border-color:#c90606;box-shadow:inset 3px 0 #ffd500;color:#fff}
+.x-risu-bsim-panel button:focus-visible,.x-risu-bsim-table-scroll:focus-visible{outline:2px solid #ffd500;outline-offset:2px}
+.x-risu-bsim-panel .x-risu-bsim-chip:disabled{opacity:.5;cursor:not-allowed}
+.x-risu-bsim-live-deck{min-width:0;padding:6px 8px;margin:6px 0;border:1px solid #393234;background:#0b0a0e;font-size:12px}
+.x-risu-bsim-live-deck>.x-risu-bsim-chip-list{gap:4px;margin:4px 0 0}
+.x-risu-bsim-panel .x-risu-bsim-skill-name{padding:3px 7px;font-size:11px;border-color:#735511}
+.x-risu-bsim-panel .x-risu-bsim-notice{border:1px solid #d89f0f;background:#240e0a;color:#ffd500;padding:6px;margin:3px 0;grid-column:1/-1}
+.x-risu-bsim-panel .x-risu-bsim-hint{font-size:12px;color:#bdb4b0}
+@media(max-width:760px){.x-risu-bsim-setup-columns{grid-template-columns:1fr}.x-risu-bsim-catalog{max-height:340px}.x-risu-bsim-skill-photo{width:80px}}
+
+</style>

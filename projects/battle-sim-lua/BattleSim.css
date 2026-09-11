@@ -1,389 +1,164 @@
 <style>
-.bsim-panel {
-  --bsim-ink: #e8edf7;
-  --bsim-muted: #8e99ad;
-  --bsim-line: rgb(151 166 190 / 18%);
-  --bsim-panel: #151a24;
-  --bsim-raised: #1b2230;
-  --bsim-accent: #58c4dc;
-  position: relative;
-  box-sizing: border-box;
-  width: min(100%, 760px);
-  margin: 12px auto;
-  padding: 18px;
-  overflow: hidden;
-  color: var(--bsim-ink);
-  background: linear-gradient(135deg, rgb(88 196 220 / 8%), transparent 38%), var(--bsim-panel);
-  border: 1px solid var(--bsim-line);
-  border-radius: 16px;
-  box-shadow: 0 18px 50px rgb(0 0 0 / 24%);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
+/* Shared shell and compact battle layout. No document/body overflow overrides. */
+.bsim-panel{--bsim-ink:#f4efea;--bsim-muted:#bdb4b0;--bsim-line:#393234;--bsim-accent:#d89f0f;box-sizing:border-box;position:relative;width:min(100%,1180px);margin:8px auto;padding:12px;background:#020213;color:var(--bsim-ink);border:1px solid #770404;font:13px/1.35 system-ui,"Noto Sans KR",sans-serif;color-scheme:dark}
+.bsim-panel *,.bsim-panel *::before,.bsim-panel *::after{box-sizing:border-box}
+.bsim-panel .bsim-header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #c90606;margin:0 0 8px;padding-bottom:8px}
+.bsim-panel .bsim-header h3{font-size:clamp(18px,2.4vw,26px);margin:2px 0 0;line-height:1.1;color:var(--bsim-ink)}
+.bsim-kicker,.bsim-log-title{font-size:10px;letter-spacing:.08em;color:#d89f0f}
+.bsim-status{border:1px solid #d89f0f;padding:8px 16px;color:#ffd500;font:600 16px ui-monospace,monospace;white-space:nowrap}
+.bsim-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bsim-arena{position:relative;min-height:0}
+.bsim-unit{min-width:0;border:1px solid var(--bsim-line);background:#0b0a0e;padding:0 8px 8px}
+.bsim-portrait-frame{position:relative;width:calc(100% + 16px);margin-left:-8px;aspect-ratio:16/10;max-height:clamp(160px,calc(100dvh - 560px),350px);overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 80%,#350606,#08070a 75%);border-bottom:1px solid #393234}
+.bsim-portrait,.bsim-cinematic-image{margin-top:0;position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center 30%;color:transparent}
+.bsim-portrait-fallback{position:absolute;inset:0;display:grid;place-items:center;color:#726564;font-weight:800;letter-spacing:.2em}
+.bsim-unit-enemy .bsim-portrait,.bsim-unit-enemy .bsim-cinematic-image{transform:scaleX(-1)}
+.bsim-vs{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);z-index:3;color:#c90606;text-shadow:0 2px 8px #000;font-size:clamp(20px,3vw,38px);font-weight:900;pointer-events:none}
+.bsim-unit-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+.bsim-unit-head b{font-size:15px;overflow-wrap:anywhere}.bsim-unit-head small{white-space:nowrap;color:var(--bsim-muted);font-size:11px}
+.bsim-resources{display:grid;gap:5px}
+.bsim-meter{display:grid;grid-template-columns:32px minmax(0,1fr) 78px;align-items:center;gap:6px}
+.bsim-meter-label{display:contents}.bsim-meter-label span{font:11px ui-monospace,monospace;color:var(--bsim-muted)}
+.bsim-meter-label span:last-child{grid-column:3;grid-row:1;text-align:right}
+.bsim-meter-track{grid-column:2;grid-row:1;height:8px;background:#191516;border:1px solid #413637;overflow:hidden}
+.bsim-meter-fill{display:block;height:100%}.bsim-meter-hp{background:#c90606}.bsim-meter-sta{background:#d89f0f}.bsim-meter-brk{background:#817371}
+.bsim-conditions{position:absolute;top:8px;left:8px;z-index:4;background:#08070add;color:#ffd500;font:700 11px ui-monospace,monospace}.bsim-conditions:empty{display:none}
+.bsim-float-deltas{position:absolute;bottom:8px;left:8px;display:flex;flex-wrap:wrap;gap:8px;max-width:calc(100% - 16px);z-index:4;padding:5px 8px;background:rgb(0 0 0 / 45%);border:1px solid rgb(0 0 0 / 65%);border-radius:8px;box-shadow:inset 0 0 0 1px rgb(255 255 255 / 7%),0 3px 10px rgb(0 0 0 / 15%);font:700 12px ui-monospace,monospace;animation:bsim-deltas .55s ease-out 2.9s both}
+.bsim-float-deltas:empty{display:none}
+.bsim-delta-positive{color:#ffd500}.bsim-delta-negative{color:#ff8585}
+.bsim-resolution{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:6;max-width:90%;padding:4px 10px;border:1px solid #770404;background:#020213e8;text-align:center;color:#f4efea;font:11px ui-monospace,monospace}
+.bsim-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.bsim-action-panel,.bsim-skill-selection{min-width:0;border:1px solid var(--bsim-line);background:#0b0a0e;padding:8px}
+.bsim-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.bsim-panel .bsim-actions .bsim-chip{font-size:17px;font-weight:700;text-align:center;min-height:44px}
+.bsim-panel .bsim-rules-button{width:100%;text-align:center;margin-top:8px}
+.bsim-panel .bsim-skill-selection h4{font-size:13px;margin:0 0 4px}
+.bsim-skill-selection>.bsim-chip-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:0}
+.bsim-skill-selection>.bsim-chip-list>.bsim-chip{grid-column:auto}
+.bsim-panel .bsim-skill-choice{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.5fr);gap:7px;align-items:center;min-width:0;padding:5px 7px;min-height:42px;text-align:left}
+.bsim-skill-choice-title{font-size:12px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.bsim-skill-choice-meta{display:grid;gap:2px;border-left:1px solid #514344;padding-left:7px;font-size:10px;line-height:1.3;color:var(--bsim-muted);overflow-wrap:anywhere}
+.bsim-skill-choice.is-selected .bsim-skill-choice-meta{color:#eee5df;border-color:#bd7777}
+.bsim-execute{grid-column:1/-1}.bsim-panel .bsim-execute>.bsim-chip{width:100%;padding:9px;text-align:center;font-size:17px;font-weight:700;background:linear-gradient(90deg,#770404,#c90606);border-color:#c90606;color:#fff}
+.bsim-battle .bsim-header h3{font-size:22px}
+.bsim-battle .bsim-skill-selection>.bsim-chip-list>.bsim-chip{padding:3px 8px}
+.bsim-battle .bsim-live-deck{margin:4px 0;padding:4px 8px}
+.bsim-log{margin-top:6px;max-height:52px;overflow:auto;border:1px solid var(--bsim-line);padding:4px 8px;scrollbar-width:thin;scrollbar-color:#770404 #0b0a0e}
+.bsim-log-title{position:sticky;top:-4px;background:#020213}.bsim-log-line{font:10px/1.4 ui-monospace,monospace;color:var(--bsim-muted)}
+.bsim-panel .bsim-footer{margin:5px 0 0;gap:6px}.bsim-panel .bsim-footer .bsim-chip{padding:3px 8px;font-size:11px}
+.bsim-own-status,.bsim-thinking,.bsim-result{padding:6px;border:1px solid #770404;color:#eee5df;font-size:12px}.bsim-thinking,.bsim-result{grid-column:1/-1}
+.bsim-own-status{max-height:40px;overflow:auto;scrollbar-width:thin}
+.bsim-asset-preload{position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}.bsim-asset-preload img{width:1px;height:1px}
+/* Browser-managed popovers: light dismiss, Escape, one open skill, implicit
+   aria-expanded on invokers. They never submit a Lua event or restart a movie. */
+.bsim-skill-popover{position:fixed;inset:auto 0 22px;margin:0 auto;width:min(560px,calc(100vw - 32px));max-height:45dvh;overflow:auto;padding:16px;border:1px solid #d89f0f;background:#100b0e;color:#f4efea;box-shadow:0 12px 50px #000b;font:14px/1.7 system-ui,sans-serif}
+.bsim-skill-popover header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#d89f0f}.bsim-panel .bsim-skill-popover p{color:#f4efea;margin:8px 0 0;white-space:normal}.bsim-skill-popover::backdrop{background:transparent}
+.bsim-panel .bsim-skill-name:has(+ .bsim-skill-popover:popover-open){background:#770404;border-color:#ffd500}
+.bsim-panel .bsim-skill-name.bsim-skill-image-button{padding:0;width:clamp(48px,5vw,64px);height:clamp(48px,5vw,64px);overflow:hidden;flex:none}
+.bsim-skill-thumbnail{margin-top:0;display:block;width:100%;height:100%;object-fit:cover;font-size:10px;line-height:1.2;color:#eee5df}
+.bsim-rules{position:fixed;inset:0;margin:auto;width:min(1180px,calc(100vw - 32px));height:min(820px,calc(100dvh - 48px));padding:16px;border:1px solid #770404;background:#020213;color:#f4efea;font:13px/1.4 system-ui,sans-serif}
+.bsim-rules:popover-open{display:flex;flex-direction:column}.bsim-rules>.bsim-header,.bsim-rules>p{flex:none}.bsim-rules::backdrop{background:#020213f5}
+.bsim-battle:has(.bsim-rules:popover-open)>:not(.bsim-rules){visibility:hidden}
+.bsim-table-scroll{min-height:0;overflow:auto;scrollbar-color:#770404 #0b0a0e;scrollbar-width:thin}.bsim-rules table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}.bsim-rules th,.bsim-rules td{border-bottom:1px solid #393234;padding:9px 10px;text-align:left}.bsim-rules th{position:sticky;top:0;z-index:1;background:#240708;color:#e8ded8}.bsim-rules tr:nth-child(even){background:#0e0b0e}.bsim-change-plus{color:#ffd500}.bsim-change-minus{color:#ff8585}.bsim-change-zero{color:#bdb4b0}
+/* Every image uses the SAME 5.5s clock. Visibility steps occur at exact phase
+   boundaries; there is no crossfade between standing and cinematic layers. */
+.bsim-transition .bsim-standing-before{animation:bsim-standing-out 5.5s linear both}
+.bsim-unit{--bsim-pulse-time:3.6s;--bsim-pulse-scale:1.007;--bsim-pulse-shift:.25px}
+.bsim-pulse-strained{--bsim-pulse-time:2.6s;--bsim-pulse-scale:1.015;--bsim-pulse-shift:.5px}
+.bsim-pulse-danger{--bsim-pulse-time:1.7s;--bsim-pulse-scale:1.028;--bsim-pulse-shift:1px}
+.bsim-pulse-critical{--bsim-pulse-time:1s;--bsim-pulse-scale:1.045;--bsim-pulse-shift:1.7px}
+.bsim-pulse-rest{--bsim-pulse-time:4s;--bsim-pulse-scale:1.016;--bsim-pulse-shift:.3px}
+.bsim-pulse-still{--bsim-pulse-scale:1;--bsim-pulse-shift:0px}
+.bsim-standing-after{transform-origin:50% 58%;animation:bsim-heartbeat var(--bsim-pulse-time) ease-in-out infinite}
+.bsim-transition .bsim-standing-after{animation:bsim-standing-in 5.5s linear both,bsim-heartbeat var(--bsim-pulse-time) ease-in-out 5.5s infinite}
+/* One enter/exit pair per distinct contiguous asset; merged stages hold still. */
+.bsim-transition .bsim-cinematic-image{opacity:0;visibility:hidden;transform-origin:50% 58%;animation:var(--bsim-enter-name,bsim-shot-in) .2s cubic-bezier(.22,.7,.3,1) var(--bsim-enter-at) both,var(--bsim-exit-name,bsim-shot-out) var(--bsim-exit-time,.2s) cubic-bezier(.22,.7,.3,1) var(--bsim-exit-at) forwards}
+.bsim-phase-1{--bsim-enter-at:.24s;--bsim-shot-scale:.9;--bsim-shot-y:12px}
+.bsim-phase-2{--bsim-enter-at:1.9s;--bsim-shot-scale:1.09;--bsim-shot-y:8px}
+.bsim-phase-3{--bsim-enter-at:2.9s;--bsim-shot-scale:.92;--bsim-shot-y:10px}
+.bsim-phase-4{--bsim-enter-at:3.8s;--bsim-shot-scale:.94;--bsim-shot-y:8px}
+.bsim-phase-5{--bsim-enter-at:4.6s;--bsim-shot-scale:.95;--bsim-shot-y:6px}
+.bsim-through-1{--bsim-exit-at:1.7s}.bsim-through-2{--bsim-exit-at:2.7s}.bsim-through-3{--bsim-exit-at:3.6s}.bsim-through-4{--bsim-exit-at:4.4s}.bsim-through-5{--bsim-exit-at:5s}
+.bsim-held-start{--bsim-enter-name:bsim-shot-hold}
+.bsim-held-end{--bsim-exit-name:bsim-shot-hide;--bsim-exit-time:0s;--bsim-exit-at:5.5s}
+.bsim-transition .bsim-standing-retained{animation:bsim-handoff-in 5.5s step-end both,bsim-heartbeat var(--bsim-pulse-time) ease-in-out 5.5s infinite}
+@keyframes bsim-standing-out{0%{opacity:1;visibility:visible}4.36%{opacity:0;visibility:hidden}100%{opacity:0;visibility:hidden}}
+@keyframes bsim-standing-in{0%,94.54%{opacity:0;visibility:hidden}94.55%{opacity:0;visibility:visible}100%{opacity:1;visibility:visible}}
+@keyframes bsim-shot-in{from{opacity:0;visibility:hidden;scale:var(--bsim-shot-scale);translate:0 var(--bsim-shot-y)}to{opacity:1;visibility:visible;scale:1;translate:0 0}}
+@keyframes bsim-shot-out{from{opacity:1;visibility:visible;scale:1;translate:0 0}to{opacity:0;visibility:hidden;scale:.96;translate:0 -6px}}
+@keyframes bsim-shot-hold{from,to{opacity:1;visibility:visible;scale:1;translate:0 0}}
+@keyframes bsim-shot-hide{from,to{opacity:0;visibility:hidden;scale:1;translate:0 0}}
+@keyframes bsim-handoff-in{0%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
+@keyframes bsim-deltas{0%{opacity:0;translate:0 10px;scale:.9}65%{opacity:1;translate:0 -2px;scale:1.025}100%{opacity:1;translate:0 0;scale:1}}
+@keyframes bsim-heartbeat{0%,42%,100%{scale:1;translate:0 0}12%,29%{scale:var(--bsim-pulse-scale);translate:var(--bsim-pulse-shift) 0}21%{scale:1;translate:calc(-1 * var(--bsim-pulse-shift)) 0}}
+/* Dice roll over the action phase and reveal the engine's final die at 1.6s. */
+.bsim-dice-badge{position:absolute;top:12px;right:12px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bsim-dice-skill-icon{display:block;margin-top:0;box-sizing:border-box;width:44px;height:44px;object-fit:contain;border:1px solid rgb(255 255 255 / 35%);border-radius:10px;background:#250a0c;box-shadow:0 5px 16px rgb(0 0 0 / 45%);animation:bsim-skill-appear .2s ease-out .24s both}
+@keyframes bsim-skill-appear{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.bsim-fast .bsim-dice-skill-icon{animation:none}
+@media(prefers-reduced-motion:reduce){.bsim-dice-skill-icon{animation:none}}
+.bsim-unit-enemy .bsim-dice-badge{right:auto;left:12px}
+.bsim-die{position:relative;display:grid;place-items:center;width:44px;height:44px;border:1px solid rgb(255 255 255 / 35%);border-radius:10px;background:#250a0c;color:#fff;box-shadow:0 5px 16px rgb(0 0 0 / 45%);font:800 24px/1 ui-monospace,monospace;animation:bsim-dice-roll 1.36s cubic-bezier(.2,.65,.3,1) .24s both}
+.bsim-die-rolling{position:absolute;inset:0;display:grid;place-items:center;animation:bsim-rolling-end 1.6s step-end both}
+.bsim-die-rolling::before{content:'⚀';font-size:34px;animation:bsim-dice-faces .42s steps(1,end) infinite}
+.bsim-die-value{animation:bsim-dice-reveal 1.6s step-end both}
+.bsim-verdict{animation:bsim-dice-reveal 1.6s step-end both}
+@keyframes bsim-dice-roll{0%{opacity:0;transform:translateY(-16px) rotate(-240deg) scale(.6);filter:blur(2px)}25%{opacity:1;transform:translateY(5px) rotate(-130deg) scale(1.08)}65%{transform:translateY(-4px) rotate(30deg) scale(.95);filter:blur(.5px)}85%{transform:translateY(2px) rotate(-10deg) scale(1.03)}100%{opacity:1;transform:translateY(0) rotate(0) scale(1);filter:blur(0)}}
+@keyframes bsim-dice-faces{0%{content:'⚀'}17%{content:'⚃'}34%{content:'⚁'}51%{content:'⚅'}68%{content:'⚂'}85%{content:'⚄'}}
+@keyframes bsim-rolling-end{0%{visibility:visible}100%{visibility:hidden}}
+@keyframes bsim-dice-reveal{0%{visibility:hidden;opacity:0}100%{visibility:visible;opacity:1}}
+.bsim-continue{grid-column:1/-1;display:flex;justify-content:center;gap:12px;padding:10px;color:#fff;background:#770404;border:1px solid #c90606;cursor:pointer;animation:bsim-ready 5.5s step-end both}
+@keyframes bsim-ready{0%{visibility:hidden;pointer-events:none}100%{visibility:visible;pointer-events:auto}}
+.bsim-fast .bsim-transition .bsim-standing-before,.bsim-fast .bsim-transition .bsim-cinematic-image{animation:none;visibility:hidden;opacity:0}
+.bsim-fast .bsim-transition .bsim-standing-after,.bsim-fast .bsim-continue,.bsim-fast .bsim-float-deltas{animation:none;visibility:visible;opacity:1;pointer-events:auto}
+.bsim-fast .bsim-transition .bsim-standing-after{animation:bsim-heartbeat var(--bsim-pulse-time) ease-in-out infinite}
+.bsim-fast .bsim-die,.bsim-fast .bsim-die-value,.bsim-fast .bsim-verdict{animation:none;opacity:1;visibility:visible}
+.bsim-fast .bsim-die-rolling{display:none}
+@media(prefers-reduced-motion:reduce){.bsim-transition .bsim-standing-before,.bsim-transition .bsim-cinematic-image{animation:none;visibility:hidden;opacity:0}.bsim-panel .bsim-standing-after,.bsim-panel .bsim-transition .bsim-standing-after,.bsim-continue,.bsim-float-deltas,.bsim-die,.bsim-die-value,.bsim-verdict{animation:none;visibility:visible;opacity:1;pointer-events:auto}.bsim-die-rolling{display:none}}
+@media(min-width:761px){
+ .bsim-battle{display:flex;flex-direction:column;max-height:calc(100dvh - 64px)}
+ .bsim-battle>*{flex-shrink:0}
+ .bsim-battle .bsim-arena{flex-shrink:1;min-height:0}
+ .bsim-battle .bsim-unit{display:flex;flex-direction:column;min-height:0}
+ .bsim-battle .bsim-unit-head,.bsim-battle .bsim-resources{flex-shrink:0}
+ .bsim-battle .bsim-portrait-frame{flex-shrink:1;min-height:0;max-height:350px}
 }
-.bsim-panel *, .bsim-panel *::before, .bsim-panel *::after { box-sizing: border-box; }
-.bsim-panel-idle { background: linear-gradient(145deg, rgb(88 196 220 / 10%), transparent 46%), var(--bsim-panel); }
-.bsim-asset-preload {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;
-}
-.bsim-asset-preload img { width: 1px; height: 1px; }
-.bsim-header {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-  margin-bottom: 16px; padding-bottom: 13px; border-bottom: 1px solid var(--bsim-line);
-}
-.bsim-header h3 {
-  margin: 2px 0 0; color: var(--bsim-ink); font-size: clamp(18px, 3vw, 25px);
-  line-height: 1.15; letter-spacing: -0.025em;
-}
-.bsim-kicker, .bsim-status, .bsim-log-title {
-  color: var(--bsim-accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
-}
-.bsim-status {
-  flex: 0 0 auto; padding: 5px 8px; color: #bceef6; background: rgb(88 196 220 / 10%);
-  border: 1px solid rgb(88 196 220 / 25%); border-radius: 999px;
-}
-.bsim-intro { margin: 0 0 15px; color: var(--bsim-muted); font-size: 13px; line-height: 1.65; }
-.bsim-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.bsim-unit {
-  min-width: 0; padding: 14px; background: var(--bsim-raised);
-  border: 1px solid var(--bsim-line); border-radius: 12px;
-}
-.bsim-portrait-frame {
-  position: relative; width: 100%; aspect-ratio: 5 / 3; min-height: 132px; overflow: hidden;
-  background: radial-gradient(circle at 50% 35%, #303b51, #10141c 72%);
-  border: 1px solid rgb(151 166 190 / 16%); border-radius: 10px; isolation: isolate;
-}
-.bsim-portrait-fallback {
-  position: absolute; inset: 0; display: grid; place-items: center; z-index: 0;
-  color: rgb(232 237 247 / 9%); font-size: clamp(54px, 12vw, 92px); font-weight: 900;
-}
-.bsim-heartbeat-layer, .bsim-hit-layer { position: absolute; inset: 0; transform-origin: 50% 58%; }
-.bsim-portrait {
-  position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%;
-  object-fit: cover; object-position: center 28%; color: transparent;
-}
-.bsim-portrait-result {
-  position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%; opacity: 0;
-  object-fit: cover; object-position: center; animation: bsim-result-portrait-enter 900ms cubic-bezier(.18,.85,.25,1) 4500ms both;
-}
-.bsim-damage-flash { position: absolute; inset: 0; z-index: 3; opacity: 0; background: #ff294d; mix-blend-mode: screen; pointer-events: none; }
-.bsim-conditions {
-  position: absolute; top: 8px; left: 8px; z-index: 5; display: flex; flex-wrap: wrap; gap: 5px;
-}
-.bsim-condition {
-  padding: 3px 6px; color: #fff; background: rgb(9 12 18 / 76%); border: 1px solid rgb(255 255 255 / 18%);
-  border-radius: 4px; box-shadow: 0 2px 8px rgb(0 0 0 / 38%); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
-}
-.bsim-condition-groggy { color: #ffd786; border-color: rgb(240 200 109 / 45%); }
-.bsim-condition-down, .bsim-condition-ko { color: #ff9aaa; border-color: rgb(228 91 112 / 48%); }
-.bsim-condition.is-new { animation: bsim-status-enter 720ms cubic-bezier(.2,.9,.2,1.35) 1425ms both; }
-.bsim-resources { margin-top: 11px; }
+@media(max-width:760px){.bsim-panel{padding:8px}.bsim-grid,.bsim-controls{gap:6px}.bsim-portrait-frame{max-height:240px}.bsim-panel .bsim-actions .bsim-chip{font-size:13px}.bsim-skill-selection>.bsim-chip-list{grid-template-columns:1fr}.bsim-meter{grid-template-columns:26px minmax(0,1fr) 64px;gap:3px}.bsim-unit-head{flex-wrap:wrap}.bsim-status{padding:6px}.bsim-panel .bsim-resolution{top:58px;font-size:9px}}
 
-.bsim-resolution {
-  position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  min-height: 330px; margin: -2px 0 13px; padding: 11px 15px; overflow: hidden;
-  background: linear-gradient(90deg, rgb(7 10 15 / 88%), rgb(25 32 44 / 90%), rgb(7 10 15 / 88%));
-  border: 1px solid var(--bsim-line); border-radius: 12px;
-}
-.bsim-resolution-interval, .bsim-resolution-both_groggy { min-height: 118px; }
-.bsim-resolution::before {
-  content: ''; position: absolute; inset: 0; opacity: .28;
-  background: repeating-linear-gradient(90deg, transparent 0 22px, rgb(255 255 255 / 5%) 23px 24px);
-  transform: translateX(-24px); animation: bsim-scan 900ms linear both;
-}
-.bsim-action-readout {
-  position: absolute; inset: 8px 12px auto; z-index: 8; display: flex; justify-content: space-between;
-  color: var(--bsim-muted); font-size: 10px; font-weight: 700;
-}
-.bsim-cinematic-stage { position: absolute; inset: 24px 0 0; z-index: 2; overflow: hidden; pointer-events: none; }
-.bsim-cinematic-stage::after {
-  content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
-  background: linear-gradient(90deg, transparent 0 38%, rgb(7 10 15 / 35%) 48%, rgb(7 10 15 / 35%) 52%, transparent 62%);
-}
-.bsim-cinematic-actor { position: absolute; bottom: -3%; width: 55%; height: 108%; z-index: 2; }
-.bsim-cinematic-player { left: -3%; }
-.bsim-cinematic-enemy { right: -3%; }
-.bsim-cinematic-image {
-  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; object-fit: contain; object-position: center bottom;
-  filter: drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); transform-origin: 50% 78%;
-}
-.bsim-cinematic-player .bsim-cinematic-action { animation: bsim-action-player 2400ms cubic-bezier(.18,.82,.25,1) 150ms both; }
-.bsim-cinematic-enemy .bsim-cinematic-action { animation: bsim-action-enemy 2400ms cubic-bezier(.18,.82,.25,1) 150ms both; }
-.bsim-cinematic-player .bsim-cinematic-resolve { animation: bsim-resolve-player 1300ms cubic-bezier(.2,.82,.25,1) 2050ms both; }
-.bsim-cinematic-enemy .bsim-cinematic-resolve { animation: bsim-resolve-enemy 1300ms cubic-bezier(.2,.82,.25,1) 2050ms both; }
-.bsim-cinematic-player .bsim-cinematic-effect { animation: bsim-effect-player 1700ms cubic-bezier(.2,.8,.25,1) 2850ms both; }
-.bsim-cinematic-enemy .bsim-cinematic-effect { animation: bsim-effect-enemy 1700ms cubic-bezier(.2,.8,.25,1) 2850ms both; }
-.bsim-cinematic-player .bsim-cinematic-state { animation: bsim-state-player 1500ms cubic-bezier(.2,.8,.25,1) 3800ms both; }
-.bsim-cinematic-enemy .bsim-cinematic-state { animation: bsim-state-enemy 1500ms cubic-bezier(.2,.8,.25,1) 3800ms both; }
-.bsim-dice-stage { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; gap: 13px; pointer-events: none; }
-.bsim-dice-stage b { color: #657086; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: .12em; }
-.bsim-die {
-  display: grid; place-items: center; width: 44px; height: 44px; color: #f6f8fc; background: #242d3d;
-  border: 1px solid rgb(255 255 255 / 24%); border-radius: 10px; box-shadow: 0 8px 18px rgb(0 0 0 / 35%);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 20px; font-weight: 900;
-  animation: bsim-dice-roll 840ms cubic-bezier(.3,.8,.25,1) 900ms both;
-}
-.bsim-die-enemy { animation-direction: normal; }
-.bsim-verdict {
-  position: absolute; left: 50%; bottom: 12px; z-index: 9; opacity: 0; transform: translate(-50%,8px) scale(.72);
-  color: #dce5f3; text-shadow: 0 2px 12px rgb(0 0 0 / 65%); white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 900; letter-spacing: .14em;
-  animation: bsim-verdict-pop 600ms cubic-bezier(.15,.9,.25,1.4) 1800ms both;
-}
-.bsim-resolution-win .bsim-verdict { color: #78deae; }
-.bsim-resolution-lose .bsim-verdict { color: #ff8292; }
-.bsim-resolution-draw .bsim-verdict { color: #f0c86d; }
-.bsim-resolution > small {
-  position: absolute; right: 9px; bottom: 7px; z-index: 3; color: #657086;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 8px;
-}
-.bsim-special-verdict {
-  position: relative; z-index: 9; grid-column: 1 / -1; color: #dce5f3; text-align: center;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; font-weight: 900; letter-spacing: .16em;
-  animation: bsim-special-enter 850ms cubic-bezier(.18,.88,.28,1.25) 500ms both;
-}
-
-.bsim-float-deltas {
-  position: absolute; right: 8px; bottom: 8px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
-}
-.bsim-delta {
-  opacity: 0; padding: 2px 5px; background: rgb(7 10 15 / 82%); border-radius: 4px;
-  box-shadow: 0 3px 9px rgb(0 0 0 / 38%); font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px; font-weight: 900; animation: bsim-delta-float 1200ms cubic-bezier(.15,.75,.25,1) 3000ms both;
-}
-.bsim-delta-positive { color: #74d6a3; }
-.bsim-delta-negative { color: #ff8292; }
-.bsim-delta-breakGauge.bsim-delta-positive { color: #f0c86d; }
-
-.bsim-unit.is-hit-light .bsim-hit-layer { animation: bsim-hit-light 390ms ease-out 3100ms both; }
-.bsim-unit.is-hit-medium .bsim-hit-layer { animation: bsim-hit-medium 510ms ease-out 3100ms both; }
-.bsim-unit.is-hit-heavy .bsim-hit-layer { animation: bsim-hit-heavy 645ms cubic-bezier(.2,.8,.3,1) 3050ms both; }
-.bsim-unit.is-hit-light .bsim-damage-flash,
-.bsim-unit.is-hit-medium .bsim-damage-flash,
-.bsim-unit.is-hit-heavy .bsim-damage-flash { animation: bsim-damage-flash 495ms steps(2,end) 3100ms both; }
-
-.bsim-unit.is-danger .bsim-heartbeat-layer { animation: bsim-heartbeat 1.725s ease-in-out infinite; }
-.bsim-unit.is-critical .bsim-heartbeat-layer { animation: bsim-heartbeat-critical 1.02s ease-in-out infinite; }
-.bsim-unit.is-break-danger .bsim-portrait-frame { box-shadow: inset 0 0 0 1px rgb(240 200 109 / 45%), 0 0 14px rgb(214 158 69 / 16%); }
-.bsim-unit.is-break-danger .bsim-portrait { animation: bsim-break-tremor 2.1s steps(2,end) infinite; }
-.bsim-unit.is-groggy .bsim-portrait { filter: saturate(.45) contrast(1.08); }
-.bsim-unit.is-groggy .bsim-portrait-frame { background: radial-gradient(circle, #4b3c26, #11151d 72%); }
-.bsim-unit.is-down .bsim-portrait { filter: grayscale(.75) brightness(.62); transform: translateY(7%) scale(1.04); }
-.bsim-unit.is-winner .bsim-heartbeat-layer,
-.bsim-unit.is-loser .bsim-heartbeat-layer,
-.bsim-unit.is-double-ko .bsim-heartbeat-layer,
-.bsim-unit.is-draw .bsim-heartbeat-layer { animation: none; }
-.bsim-unit.is-loser .bsim-portrait, .bsim-unit.is-double-ko .bsim-portrait { animation: bsim-loser-portrait 780ms ease 4700ms both; }
-.bsim-unit.is-winner .bsim-portrait { animation: bsim-winner-portrait 930ms ease 4700ms both; }
-.bsim-end-overlay {
-  position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; opacity: 0;
-  background: rgb(3 5 8 / 76%); pointer-events: none; animation: bsim-end-curtain 930ms ease 4700ms both;
-}
-.bsim-end-overlay strong {
-  padding: 7px 12px; color: #edf2fa; border: 1px solid rgb(255 255 255 / 42%); border-radius: 5px;
-  text-shadow: 0 3px 14px #000; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: clamp(17px,4vw,27px); letter-spacing: .16em;
-}
-.bsim-unit.is-winner .bsim-end-overlay { background: linear-gradient(135deg, rgb(20 80 86 / 40%), rgb(3 5 8 / 44%)); }
-.bsim-unit.is-winner .bsim-end-overlay strong { color: #9de8e7; border-color: rgb(88 196 220 / 64%); box-shadow: 0 0 22px rgb(88 196 220 / 24%); }
-.bsim-unit.is-double-ko .bsim-end-overlay strong, .bsim-unit.is-loser .bsim-end-overlay strong { color: #ff9aaa; border-color: rgb(228 91 112 / 65%); }
-
-.bsim-continue {
-  display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; margin-top: 12px; padding: 11px 14px;
-  opacity: 0; pointer-events: none; cursor: pointer; color: #e9f8fb; background: rgb(88 196 220 / 12%);
-  border: 1px solid rgb(88 196 220 / 34%); border-radius: 10px; font-size: 12px; font-weight: 700;
-  animation: bsim-continue-ready 540ms ease 5200ms both;
-}
-.bsim-continue span { color: var(--bsim-accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; letter-spacing: .12em; }
-.bsim-continue:hover { background: rgb(88 196 220 / 19%); border-color: rgb(88 196 220 / 55%); }
-
-@keyframes bsim-scan { from { transform: translateX(-24px); } to { transform: translateX(0); } }
-@keyframes bsim-action-player {
-  0% { opacity: 0; transform: translateX(-34%) scale(.9); }
-  16%,76% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(5%) scale(1.04); }
-}
-@keyframes bsim-action-enemy {
-  0% { opacity: 0; transform: translateX(34%) scale(.9); }
-  16%,76% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-5%) scale(1.04); }
-}
-@keyframes bsim-resolve-player {
-  0% { opacity: 0; transform: translateX(-10%) scale(1.12); filter: brightness(1.35) drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); }
-  18%,72% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(4%) scale(1.02); }
-}
-@keyframes bsim-resolve-enemy {
-  0% { opacity: 0; transform: translateX(10%) scale(1.12); filter: brightness(1.35) drop-shadow(0 12px 16px rgb(0 0 0 / 48%)); }
-  18%,72% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-4%) scale(1.02); }
-}
-@keyframes bsim-effect-player {
-  0% { opacity: 0; transform: translateX(-12%) scale(.94); }
-  16%,72% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(3%) scale(1.02); }
-}
-@keyframes bsim-effect-enemy {
-  0% { opacity: 0; transform: translateX(12%) scale(.94); }
-  16%,72% { opacity: 1; transform: translateX(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-3%) scale(1.02); }
-}
-@keyframes bsim-state-player {
-  0% { opacity: 0; transform: translateY(8%) scale(1.08); }
-  18%,72% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-2%) scale(1); }
-}
-@keyframes bsim-state-enemy {
-  0% { opacity: 0; transform: translateY(8%) scale(1.08); }
-  18%,72% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-2%) scale(1); }
-}
-@keyframes bsim-result-portrait-enter {
-  from { opacity: 0; filter: brightness(1.4); transform: scale(1.04); }
-  to { opacity: 1; filter: brightness(1); transform: scale(1); }
-}
-@keyframes bsim-dice-roll {
-  0% { opacity: 0; filter: blur(3px); transform: translateY(-18px) rotate(-110deg) scale(.62); }
-  55% { opacity: 1; filter: blur(1px); transform: translateY(4px) rotate(25deg) scale(1.12); }
-  100% { opacity: 1; filter: blur(0); transform: translateY(0) rotate(0) scale(1); }
-}
-@keyframes bsim-verdict-pop { to { opacity: 1; transform: translate(-50%,0) scale(1); } }
-@keyframes bsim-special-enter { from { opacity: 0; letter-spacing: .35em; transform: scale(.78); } to { opacity: 1; letter-spacing: .16em; transform: scale(1); } }
-@keyframes bsim-hit-light { 33% { transform: translateX(-3px); } 66% { transform: translateX(2px); } }
-@keyframes bsim-hit-medium { 25% { transform: translateX(-7px) rotate(-1deg); } 55% { transform: translateX(5px) rotate(1deg); } 80% { transform: translateX(-2px); } }
-@keyframes bsim-hit-heavy { 18% { transform: translateX(-12px) rotate(-2deg) scale(.97); } 46% { transform: translateX(9px) rotate(1.4deg); } 70% { transform: translateX(-5px); } 88% { transform: translateX(2px); } }
-@keyframes bsim-damage-flash { 0%,100% { opacity: 0; } 20%,58% { opacity: .58; } 40%,78% { opacity: .08; } }
-@keyframes bsim-delta-float { 0% { opacity: 0; transform: translateY(10px) scale(.8); } 25%,72% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 1; transform: translateY(-4px) scale(1); } }
-@keyframes bsim-status-enter { from { opacity: 0; transform: scale(1.8); } to { opacity: 1; transform: scale(1); } }
-@keyframes bsim-heartbeat { 0%,38%,100% { transform: scale(1); } 12% { transform: scale(1.018); } 22% { transform: scale(1.006); } }
-@keyframes bsim-heartbeat-critical { 0%,38%,100% { transform: scale(1); } 11% { transform: scale(1.035); } 23% { transform: scale(1.01); } }
-@keyframes bsim-break-tremor { 0%,92%,100% { transform: translateX(0); } 94% { transform: translateX(-1px); } 97% { transform: translateX(1px); } }
-@keyframes bsim-loser-portrait { to { filter: grayscale(1) brightness(.34); transform: scale(.98); } }
-@keyframes bsim-winner-portrait { 50% { filter: brightness(1.18) saturate(1.15); transform: scale(1.025); } 100% { filter: brightness(1.05); transform: scale(1); } }
-@keyframes bsim-end-curtain { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
-@keyframes bsim-continue-ready { to { opacity: 1; pointer-events: auto; } }
-.bsim-unit-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px;
-}
-.bsim-unit-head b {
-  min-width: 0; overflow: hidden; color: #f6f8fc; font-size: 14px; text-overflow: ellipsis; white-space: nowrap;
-}
-.bsim-unit-head small { flex: 0 0 auto; color: var(--bsim-muted); font-size: 10px; }
-.bsim-meter { margin-top: 9px; }
-.bsim-meter-label {
-  display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--bsim-muted);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px;
-}
-.bsim-meter-track { width: 100%; height: 7px; overflow: hidden; background: rgb(0 0 0 / 28%); border-radius: 999px; }
-.bsim-meter-fill { display: block; height: 100%; border-radius: inherit; transition: width 270ms ease; }
-.bsim-meter-hp { background: linear-gradient(90deg, #e45b70, #ff8292); }
-.bsim-meter-sta { background: linear-gradient(90deg, #4bbf85, #74d6a3); }
-.bsim-meter-brk { background: linear-gradient(90deg, #d69e45, #f0c86d); }
-.bsim-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
-.bsim-button, .bsim-roster-button, .bsim-exit {
-  appearance: none; cursor: pointer; color: var(--bsim-ink); border: 1px solid var(--bsim-line);
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-}
-.bsim-button:hover, .bsim-roster-button:hover, .bsim-exit:hover {
-  transform: translateY(-1px); border-color: rgb(151 166 190 / 42%);
-}
-.bsim-button:active, .bsim-roster-button:active, .bsim-exit:active { transform: translateY(0); }
-.bsim-button {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 56px;
-  padding: 10px 12px; background: #202838; border-radius: 10px; text-align: left;
-}
-.bsim-button span {
-  opacity: 0.66; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 9px; letter-spacing: 0.1em;
-}
-.bsim-button b { font-size: 14px; }
-.bsim-attack { border-bottom-color: #e45b70; }
-.bsim-defend { border-bottom-color: #58c4dc; }
-.bsim-evade { border-bottom-color: #b391e6; }
-.bsim-attack:hover { background: rgb(228 91 112 / 13%); }
-.bsim-defend:hover { background: rgb(88 196 220 / 13%); }
-.bsim-evade:hover { background: rgb(179 145 230 / 13%); }
-.bsim-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.bsim-roster-button {
-  display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px;
-  background: var(--bsim-raised); border-radius: 9px; text-align: left;
-}
-.bsim-roster-button span { color: var(--bsim-muted); font-size: 9px; }
-.bsim-roster-button b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.bsim-log {
-  max-height: 170px; margin-top: 13px; padding: 11px 12px; overflow-y: auto;
-  background: rgb(5 8 13 / 35%); border: 1px solid var(--bsim-line); border-radius: 10px;
-  scrollbar-color: rgb(151 166 190 / 30%) transparent; scrollbar-width: thin;
-}
-.bsim-log-title { margin-bottom: 7px; }
-.bsim-log-line {
-  padding: 3px 0; color: #b7c0d0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px; line-height: 1.55; border-bottom: 1px solid rgb(151 166 190 / 8%);
-}
-.bsim-result, .bsim-forced, .bsim-hint {
-  margin-top: 13px; padding: 11px 12px; color: var(--bsim-muted); background: rgb(88 196 220 / 7%);
-  border: 1px solid rgb(88 196 220 / 16%); border-radius: 10px; font-size: 12px;
-}
-.bsim-result { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.bsim-result strong { color: #f4f7fb; font-size: 16px; }
-.bsim-result .bsim-button-secondary { min-height: auto; }
-.bsim-hint code { padding: 2px 5px; color: #bceef6; background: rgb(0 0 0 / 25%); border-radius: 4px; }
-.bsim-exit {
-  display: block; margin: 10px 0 0 auto; padding: 6px 9px; color: var(--bsim-muted);
-  background: transparent; border-radius: 7px; font-size: 10px;
-}
-@media (max-width: 620px) {
-  .bsim-panel { padding: 13px; border-radius: 12px; }
-  .bsim-grid { grid-template-columns: 1fr; }
-  .bsim-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bsim-unit-head { align-items: flex-start; flex-direction: column; }
-}
-@media (max-width: 380px) {
-  .bsim-actions, .bsim-roster { grid-template-columns: 1fr; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bsim-panel *, .bsim-panel *::before, .bsim-panel *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 1ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-  }
-  .bsim-continue { opacity: 1; pointer-events: auto; }
-}
-/* Desktop skill setup and live tooltips; legacy animation timing stays unchanged. */
+/* Setup catalog and shared controls. */
 .bsim-panel.bsim-setup{width:min(100%,1100px)}
-.bsim-panel .bsim-chip{border:1px solid #4a5268;background:#222a3c;color:#eaf0ff;border-radius:8px;padding:9px 12px;cursor:pointer;font-size:13px;line-height:1.4;text-align:left}
-.bsim-panel .bsim-chip.is-selected{background:#304c61;border-color:#6edbc7;color:#d7fff2}
+.bsim-panel .bsim-chip{border:1px solid #514344;background:#100d10;color:#eee5df;border-radius:0;padding:9px 12px;cursor:pointer;font-size:13px;line-height:1.4;text-align:left}
+.bsim-panel .bsim-chip.is-selected{background:#770404;border-color:#d89f0f;color:#eee5df}
 .bsim-panel .bsim-chip:disabled{opacity:.42;cursor:not-allowed}
-.bsim-panel .bsim-chip:focus-visible{outline:2px solid #f0cb81;outline-offset:2px}
+.bsim-panel .bsim-chip:focus-visible{outline:2px solid #ffd500;outline-offset:2px}
 .bsim-chip-list,.bsim-equipped,.bsim-card-controls,.bsim-setup-footer{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .bsim-setup-columns{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(360px,1.4fr);gap:20px}
-.bsim-settings,.bsim-deck-editor{min-width:0;background:#111a28;border:1px solid #303d50;border-radius:12px;padding:16px}
-.bsim-panel h4{font-size:16px;color:#eaf0ff;margin:16px 0 10px}
-.bsim-panel p{font-size:13px;line-height:1.6;color:#c0cbdc}
-.bsim-panel details{margin:12px 0;border:1px solid #344155;border-radius:8px;padding:10px}
-.bsim-panel summary{cursor:pointer;color:#cedbf0;font-size:13px}
+.bsim-settings,.bsim-deck-editor{min-width:0;background:#0b0a0e;border:1px solid #443637;border-radius:0;padding:16px}
+.bsim-panel h4{font-size:16px;color:#eee5df;margin:16px 0 10px}
+.bsim-panel p{font-size:13px;line-height:1.6;color:#bdb4b0}
+.bsim-panel details{margin:12px 0;border:1px solid #443637;border-radius:0;padding:10px}
+.bsim-panel summary{cursor:pointer;color:#eee5df;font-size:13px}
 .bsim-config-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0}
-.bsim-config-row>b{width:100%;font-size:12px;color:#96aac2}
+.bsim-config-row>b{width:100%;font-size:12px;color:#bdb4b0}
 .bsim-preset-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
 .bsim-catalog{max-height:470px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px}
-.bsim-skill-card{background:#202a3c;border:1px solid #354358;border-radius:9px;padding:12px;min-width:0}
-.bsim-skill-card.is-equipped{border-color:#6edbc7}
-.bsim-skill-card>b{color:#f1f4fc;font-size:14px}
+.bsim-skill-card{background:#161013;border:1px solid #443637;border-radius:0;padding:12px;min-width:0}
+.bsim-skill-card.is-equipped{border-color:#d89f0f}
+.bsim-skill-card>b{color:#eee5df;font-size:14px}
 .bsim-skill-card>p{font-size:12px;min-height:54px;margin:8px 0}
 .bsim-card-controls .bsim-chip{font-size:12px;padding:5px 9px}
-.bsim-skill-detail{display:flex;align-items:flex-start;gap:14px;white-space:normal;border:1px solid #668a91;background:#162d35;color:#edf9f7;border-radius:10px;padding:16px;font-size:14px;line-height:1.85;margin:14px 0;overflow-wrap:anywhere}
-.bsim-skill-photo{width:112px;aspect-ratio:1;object-fit:contain;flex-shrink:0;border-radius:8px;background:#0c1924}
-.bsim-live-deck{background:#141e2e;border-radius:10px;padding:12px;margin:8px 0;font-size:12px;color:#b6c9df}
-.bsim-skill-name{padding:5px 8px;border:1px solid #34485b;border-radius:7px;font-size:12px;cursor:help}
-.bsim-skill-choice{display:flex;flex-direction:column;gap:6px;max-width:220px}
-.bsim-skill-choice small{font-size:11px;color:#b5c5d8;line-height:1.5}
-.bsim-skill-selection{padding:12px;background:#111b2b;border-radius:12px;margin-top:12px}
-.bsim-own-status,.bsim-thinking{padding:14px;background:#283744;border-radius:9px;margin:12px 0;color:#e2f5ed;font-size:13px}
-.bsim-panel .bsim-notice{border:1px solid #d9a55a;background:#3b2b20;color:#ffdfac;padding:12px;border-radius:9px}
-.bsim-panel.bsim-fast *, .bsim-panel.bsim-fast *::before,.bsim-panel.bsim-fast *::after{animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important;transition-delay:0ms!important}
-.bsim-panel.bsim-fast .bsim-continue{opacity:1;pointer-events:auto;transform:none}
+.bsim-skill-detail{display:flex;align-items:flex-start;gap:14px;white-space:normal;border:1px solid #443637;background:#160b0d;color:#eee5df;border-radius:0;padding:16px;font-size:14px;line-height:1.85;margin:14px 0;overflow-wrap:anywhere}
+.bsim-skill-photo{width:112px;margin-top:0;aspect-ratio:1;object-fit:contain;flex-shrink:0;border-radius:0;background:#09070a}
+
+.bsim-panel .bsim-chip:hover:not(:disabled){background:#351012;border-color:#c90606}
+.bsim-panel .bsim-chip.is-selected{background:#770404;border-color:#c90606;box-shadow:inset 3px 0 #ffd500;color:#fff}
+.bsim-panel button:focus-visible,.bsim-table-scroll:focus-visible{outline:2px solid #ffd500;outline-offset:2px}
+.bsim-panel .bsim-chip:disabled{opacity:.5;cursor:not-allowed}
+.bsim-live-deck{min-width:0;padding:6px 8px;margin:6px 0;border:1px solid #393234;background:#0b0a0e;font-size:12px}
+.bsim-live-deck>.bsim-chip-list{gap:4px;margin:4px 0 0}
+.bsim-panel .bsim-skill-name{padding:3px 7px;font-size:11px;border-color:#735511}
+.bsim-panel .bsim-notice{border:1px solid #d89f0f;background:#240e0a;color:#ffd500;padding:6px;margin:3px 0;grid-column:1/-1}
+.bsim-panel .bsim-hint{font-size:12px;color:#bdb4b0}
 @media(max-width:760px){.bsim-setup-columns{grid-template-columns:1fr}.bsim-catalog{max-height:340px}.bsim-skill-photo{width:80px}}
 
 </style>

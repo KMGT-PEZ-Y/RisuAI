@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "sharedStateKey": "primal_apex_state_v1",
+  "battleSource": "projects\\battle-sim-lua\\BattleSim-RisuAI.charx",
+  "battleLuaSha256": "bdfbbb2af6500fe5c3ebeed0c423bb4d3f0a24b968d920445450a90bdf13940f",
+  "modules": {
+    "hub": {
+      "file": "Primal-Apex-Hub.risum",
+      "bytes": 238978,
+      "sha256": "00a31f2a5c0d94b324a9ba8764d2574e54c9333dc6862a2f67ab80f3e110f9fc",
+      "id": "81bc74e7-0b86-42da-a405-4b36177b0e71"
+    },
+    "matchmaking": {
+      "file": "Primal-Apex-Matchmaking.risum",
+      "bytes": 25920,
+      "sha256": "b93b2242fff30db60fffe801e0b65fa2da1105216cb8d9d2598f00cef5945b03",
+      "id": "81bc74e7-0b86-42da-a405-4b36177b0e72"
+    },
+    "story": {
+      "file": "Primal-Apex-Story.risum",
+      "bytes": 35216,
+      "sha256": "e641285583a09faae736b2d9d7dd5b9e8b8554724a27b80b997a6ec9f71a68e6",
+      "id": "81bc74e7-0b86-42da-a405-4b36177b0e73"
+    },
+    "training": {
+      "file": "Primal-Apex-Training.risum",
+      "bytes": 23964,
+      "sha256": "25bdc184cd491d66c71d6d3d27c8fc577fc41b3aa337d898367de96ce61e73c4",
+      "id": "81bc74e7-0b86-42da-a405-4b36177b0e74"
+    }
+  }
+}

@@ -131,7 +131,7 @@ def extended():
     b.handle('qa','bs;start'); state=saved['battle_sim_state_v1']; config=saved['battle_sim_config_v2']
     config.screen='battle'; state.aiMode='existing'
     token=b.token(state); b.handle('qa','bs;act;'+token+';attack'); b.handle('qa','bs;skill;'+token+';rookie_power_strike')
-    html=b.render(state,config); assert '이번 턴 스킬' in html and '힘주어 치기' in html and 'bsim-skill-detail' in html
+    html=b.render(state,config); assert '이번 턴 스킬' in html and '힘주어 치기' in html and 'bsim-skill-popover' in html and 'bsim-skill-detail' not in html
     b.handle('qa','bs;execute;'+token); assert state.matchTurn==1
     b.handle('qa','bs;execute;'+token); assert state.matchTurn==1
     token=b.token(state); b.handle('qa','bs;continue;'+token); assert not state.presentation
@@ -166,7 +166,9 @@ def extended():
     assert b.step(ls,table(lua,{'player':{'action':'attack','skill':'m01'},'enemy':{'action':'attack'}}),table(lua,[6,1]),False) is True
     for name in ['resolution','resolution-fast']:
         ls.fast=name.endswith('fast'); html=b.render(ls,cfg)
-        assert 'player_skill_m01.png' in html
+        assert '{{raw::skill_m01.png}}' in html
+        assert 'player_skill_m01.png' not in html
+        assert 'data-asset="player_action_attack.png"' in html
         (out/(name+'.html')).write_text('<!doctype html><meta charset="utf-8"><title>BattleSim '+name+'</title><style>body{background:#09111c;padding:20px}</style>'+css+html,encoding='utf-8')
     print('NG+ shared-scenario parity and adapter UI tests passed:',searches)
     return searches

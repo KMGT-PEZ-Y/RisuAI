@@ -1,0 +1,14 @@
+{
+  "Last-Bell.risum": {
+    "bytes": 50545,
+    "sha256": "614b41a5dabb8176ca2c94a0206302a6638a3273b855776082c058748e96a78d"
+  },
+  "Last-Bell-Standalone.charx": {
+    "bytes": 21334,
+    "sha256": "ab3b5b6d1c1b490256390652ef945d1eeb4e6693923ca18f5795663a35eb212a"
+  },
+  "Last-Bell.lua": {
+    "bytes": 33046,
+    "sha256": "2c23253766d9368c20948f5a444c1d41ea1e853e310e96ed21237f059ec4d467"
+  }
+}

@@ -1076,27 +1076,11 @@ local function hpBand(character)
   return 'critical'
 end
 
-local function mainPortraitPath(state,side)
-  local character=side=='player' and state.player or state.enemy
-  local role=outcomeRole(state.outcome,side)
-  if state.outcome and not state.presentation and (role=='winner' or role=='loser' or role=='double-ko') then
-    return assetPath(state,side,role=='winner' and 'result_win' or 'result_lose')
-  end
-  if state.presentation and state.presentation.kind=='interval' then
-    return assetPath(state,side,'interval_d'..downStage(character))
-  end
-  if character.isKo then return assetPath(state,side,'ko') end
-  if character.isDown then return assetPath(state,side,'down_d'..math.max(1,downStage(character))) end
-  return assetPath(state,side,string.format('main_d%d_%s',downStage(character),hpBand(character)))
-end
-
 local SPECIAL_RESOLVE_SUFFIX={['02']='resolve_cross_clash',['14']='resolve_clinch',['26']='resolve_standoff'}
 
 local function actionPortraitPath(state,side,presentation)
   local action=B.sideValue(presentation,side,'playerAction','enemyAction')
   if not action then return false end
-  local id=B.sideValue(presentation,side,'playerSkill','enemySkill')
-  if state.skillPhotos and id then return assetPath(state,side,'skill_'..id) end
   return assetPath(state,side,'action_'..action)
 end
 
@@ -1144,20 +1128,6 @@ local function finalResultPath(state,side,presentation)
   return false
 end
 
-local function cinematicImage(path,className)
-  if not path then return '' end
-  return '<img class="bsim-cinematic-image '..className..'" src="{{raw::'..esc(path)..'}}" alt="" loading="eager" decoding="sync">'
-end
-
-local function renderCinematicActor(state,side,presentation)
-  local parts={'<div class="bsim-cinematic-actor bsim-cinematic-'..side..'">'}
-  table.insert(parts,cinematicImage(actionPortraitPath(state,side,presentation),'bsim-cinematic-action'))
-  table.insert(parts,cinematicImage(resolvePortraitPath(state,side,presentation),'bsim-cinematic-resolve'))
-  table.insert(parts,cinematicImage(effectReactionPath(state,side,presentation),'bsim-cinematic-effect'))
-  table.insert(parts,cinematicImage(statusReactionPath(state,side,presentation),'bsim-cinematic-state'))
-  table.insert(parts,'</div>'); return table.concat(parts)
-end
-
 local function renderActionPreload(state)
   local parts={'<div class="bsim-asset-preload" aria-hidden="true">'}
   for _,side in ipairs({'player','enemy'}) do
@@ -1169,68 +1139,128 @@ local function renderActionPreload(state)
   table.insert(parts,'</div>'); return table.concat(parts)
 end
 
+
+-- Display-only adapters. Rules remain the tables used by the combat engine/AI.
+function B.ruleRows()
+  local rows={}
+  for _,a in ipairs(ACTIONS) do for _,b in ipairs(ACTIONS) do
+    for _,dice in ipairs({'win','draw','lose'}) do
+      rows[#rows+1]={action=a,opponent=b,dice=dice,value=RESULT_TABLE[resultKey(a,b,dice)]}
+    end
+  end end
+  for _,a in ipairs(ACTIONS) do rows[#rows+1]={action=a,opponent='groggy',dice='none',value=GROGGY_TABLE[a]} end
+  return rows
+end
+
+local function stablePortrait(state,side,character)
+  if state.outcome then
+    local role=outcomeRole(state.outcome,side)
+    if role=='winner' then return assetPath(state,side,'result_win') end
+    if role=='loser' or role=='double-ko' then return assetPath(state,side,'result_lose') end
+  end
+  if character.isKo then return assetPath(state,side,'ko') end
+  if character.isDown then return assetPath(state,side,'down_d'..math.max(1,downStage(character))) end
+  return assetPath(state,side,string.format('main_d%d_%s',downStage(character),hpBand(character)))
+end
+
+-- Reconstruct the pre-resolution portrait from existing saved deltas/flags.
+-- No extra save fields or timers: a presentation sequence owns the whole timeline.
+local function beforePortrait(state,side,p)
+  local c=B.copy(state[side]); local d=p[side..'Delta'] or {}
+  c.hp=c.hp-(d.hp or 0)
+  if p[side..'EnteredDown'] or p[side..'EnteredKo'] then c.downCount=math.max(0,c.downCount-1); c.isDown=false; c.isKo=false end
+  if p[side..'Woke'] then c.isDown=true end
+  return stablePortrait({characterKeys=state.characterKeys,strategy=state.strategy},side,c)
+end
+
+local function portraitImage(path,classes,title,attributes)
+  return '<img class="'..classes..'" '..(attributes or '')..' src="{{raw::'..esc(path)..'}}" alt="'..esc(title or '')..'" loading="eager" decoding="sync">'
+end
+
+-- Merge adjacent equal assets, not all occurrences: A/B/A is still three shots.
+-- Retaining the first/last stage preserves dice, reaction and Continue timing.
+function B.mergePortraitStages(paths)
+  local groups={}
+  for i,path in ipairs(paths) do
+    local previous=groups[#groups]
+    if previous and previous.path==path then previous.last=i
+    else groups[#groups+1]={path=path,first=i,last=i} end
+  end
+  return groups
+end
+
+local function pulseClass(c,outcome)
+  if c.isKo or outcome then return 'bsim-pulse-still' end
+  if c.isDown or c.isGroggy then return 'bsim-pulse-rest' end
+  local ratio=c.maxHp>0 and c.hp/c.maxHp or 0
+  if ratio<=.15 then return 'bsim-pulse-critical' end
+  if ratio<=.35 then return 'bsim-pulse-danger' end
+  if ratio<=.60 then return 'bsim-pulse-strained' end
+  return 'bsim-pulse-calm'
+end
+
+function B.skillIconPath(id) return 'skill_'..id..'.png' end
+
+local function renderDie(state,p,side)
+  if not p or p.kind~='normal' or not p[side..'Die'] then return '' end
+  local value=p[side..'Die']
+  local id=p[side..'Skill']; local icon=''
+  if state.skillPhotos and id and B.skills[id] then
+    icon='<img class="bsim-dice-skill-icon" src="{{raw::'..esc(B.skillIconPath(id))..'}}" alt="사용 스킬: '..esc(B.skills[id].name)..'" loading="eager">'
+  end
+  return '<div class="bsim-dice-badge"><span class="bsim-die" role="img" aria-label="'..(side=='player' and '내 주사위' or '상대 주사위')..' '..value..'"><span class="bsim-die-rolling" aria-hidden="true"></span><span class="bsim-die-value" aria-hidden="true">'..value..'</span></span>'..icon..'</div>'
+end
+
 local function renderCharacter(state,side)
-  local character=side=='player' and state.player or state.enemy
-  local presentation=state.presentation
-  local title=character.name
-  local portrait=mainPortraitPath(state,side)
-  local initial=side=='player' and 'P' or 'E'
-  local classes={'bsim-unit','bsim-unit-'..side}
-  if character.hp<=character.maxHp*.15 and not character.isKo then table.insert(classes,'is-critical')
-  elseif character.hp<=character.maxHp*.35 and not character.isKo then table.insert(classes,'is-danger') end
-  if character.breakGauge>=character.maxBreakGauge*.75 and not character.isKo then table.insert(classes,'is-break-danger') end
-  if character.isGroggy then table.insert(classes,'is-groggy') end
-  if character.isDown then table.insert(classes,'is-down') end
-  if character.isKo then table.insert(classes,'is-ko') end
-  local hit=presentation and (B.sideValue(presentation,side,'playerHit','enemyHit'))
-  if hit then table.insert(classes,'is-hit-'..hit) end
-  local role,resultLabel=outcomeRole(state.outcome,side)
-  if role then table.insert(classes,'is-'..role) end
-  local enteredGroggy=presentation and (B.sideValue(presentation,side,'playerEnteredGroggy','enemyEnteredGroggy'))
-  local enteredDown=presentation and (B.sideValue(presentation,side,'playerEnteredDown','enemyEnteredDown'))
-  local finalPortrait=presentation and finalResultPath(state,side,presentation) or false
+  local c=state[side]; local p=state.presentation; local standing=stablePortrait(state,side,c)
+  local parts={'<section class="bsim-unit bsim-unit-'..side..' '..pulseClass(c,state.outcome)..'"><div class="bsim-portrait-frame'..(p and ' bsim-transition' or '')..'"'..(p and ' data-sequence="'..p.sequenceId..'"' or '')..'>'}
+  parts[#parts+1]='<span class="bsim-portrait-fallback">'..(side=='player' and 'PLAYER' or 'OPPONENT')..'</span>'
+  local retained=false
+  if p then
+    local before=beforePortrait(state,side,p)
+    local action=actionPortraitPath(state,side,p)
+    if p.kind=='interval' then action=assetPath(state,side,'interval_d'..downStage(c)) end
+    if p.kind=='down_wait' then action=beforePortrait(state,side,p) end
+    local resolve=resolvePortraitPath(state,side,p) or action
+    local effect=effectReactionPath(state,side,p) or resolve
+    local status=statusReactionPath(state,side,p) or effect
+    local finish=finalResultPath(state,side,p)
+    if c.isKo then finish=assetPath(state,side,'ko')
+    elseif c.isDown then finish=assetPath(state,side,'down_d'..math.max(1,downStage(c))) end
+    if p.kind=='both_groggy' then action=assetPath(state,side,'reaction_groggy'); resolve=action; effect=action; status=action end
+    local groups=B.mergePortraitStages({action or standing,resolve or standing,effect or standing,status or standing,finish or status or standing})
+    if groups[1].path~=before then parts[#parts+1]=portraitImage(before,'bsim-portrait bsim-standing-before') end
+    retained=groups[#groups].path==standing
+    for i,g in ipairs(groups) do
+      local classes='bsim-cinematic-image bsim-phase-'..g.first..' bsim-through-'..g.last
+      if i==1 and g.path==before then classes=classes..' bsim-held-start' end
+      if i==#groups and retained then classes=classes..' bsim-held-end' end
+      parts[#parts+1]=portraitImage(g.path,classes,nil,'data-phase-start="'..g.first..'" data-phase-end="'..g.last..'" data-asset="'..esc(g.path)..'"')
+    end
+  end
+  parts[#parts+1]=portraitImage(standing,'bsim-portrait bsim-standing-after'..(retained and ' bsim-standing-retained' or ''),c.name)
+  parts[#parts+1]=renderDie(state,p,side)
   local tags={}
-  if character.isGroggy then table.insert(tags,'<span class="bsim-condition bsim-condition-groggy'..(enteredGroggy and ' is-new' or '')..'">GROGGY</span>') end
-  if character.isDown then table.insert(tags,'<span class="bsim-condition bsim-condition-down'..(enteredDown and ' is-new' or '')..'">DOWN '..character.skippedTurnsRemaining..'</span>') end
-  if character.isKo then table.insert(tags,'<span class="bsim-condition bsim-condition-ko">KO</span>') end
-  local parts={string.format('<section class="%s">',table.concat(classes,' '))}
-  table.insert(parts,'<div class="bsim-unit-head"><b>'..esc(title)..'</b><small>다운 '..character.downCount..' / 3</small></div>')
-  table.insert(parts,'<div class="bsim-portrait-frame"><span class="bsim-portrait-fallback">'..initial..'</span><div class="bsim-heartbeat-layer"><div class="bsim-hit-layer"><img class="bsim-portrait" src="{{raw::'..esc(portrait)..'}}" alt="'..esc(title)..'" loading="eager" decoding="sync"></div></div>')
-  if finalPortrait then table.insert(parts,'<img class="bsim-portrait-result" src="{{raw::'..esc(finalPortrait)..'}}" alt="" loading="eager" decoding="sync">') end
-  table.insert(parts,'<div class="bsim-damage-flash"></div>')
-  table.insert(parts,'<div class="bsim-conditions">'..table.concat(tags)..'</div>')
-  table.insert(parts,renderDeltas(presentation,side))
-  if resultLabel then table.insert(parts,'<div class="bsim-end-overlay"><strong>'..resultLabel..'</strong></div>') end
-  table.insert(parts,'</div><div class="bsim-resources">')
-  table.insert(parts,bar('HP',character.hp,character.maxHp,'hp')..bar('STA',character.stamina,character.maxStamina,'sta')..bar('BRK',character.breakGauge,character.maxBreakGauge,'brk'))
-  table.insert(parts,'</div></section>'); return table.concat(parts)
+  if c.isGroggy then tags[#tags+1]='GROGGY' end
+  if c.isDown then tags[#tags+1]='DOWN '..c.skippedTurnsRemaining end
+  if c.isKo then tags[#tags+1]='KO' end
+  local _,result=outcomeRole(state.outcome,side)
+  if result then tags[#tags+1]=result end
+  parts[#parts+1]='<div class="bsim-conditions">'..table.concat(tags,' · ')..'</div>'..renderDeltas(p,side)..'</div>'
+  parts[#parts+1]='<div class="bsim-unit-head"><b>'..esc(c.name)..'</b><small>다운 '..c.downCount..' / 3</small></div><div class="bsim-resources">'
+  parts[#parts+1]=bar('HP',c.hp,c.maxHp,'hp')..bar('STA',c.stamina,c.maxStamina,'sta')..bar('BRK',c.breakGauge,c.maxBreakGauge,'brk')..'</div></section>'
+  return table.concat(parts)
 end
 
 local function renderResolution(state)
-  local presentation=state.presentation
-  if not presentation then return '' end
-  local parts={string.format('<div class="bsim-resolution bsim-resolution-%s" data-sequence="%d">',presentation.diceResult or presentation.kind,presentation.sequenceId or 0)}
-  if presentation.kind~='interval' and presentation.kind~='both_groggy' then
-    table.insert(parts,'<div class="bsim-cinematic-stage">'..renderCinematicActor(state,'player',presentation)..renderCinematicActor(state,'enemy',presentation)..'</div>')
+  local p=state.presentation
+  if not p then return '' end
+  local label=({groggy='GROGGY OPENING',down_wait='DOWN COUNT',both_groggy='DOUBLE GROGGY',interval='ROUND INTERVAL'})[p.kind]
+  if p.kind=='normal' then
+    return '<div class="bsim-resolution" role="status">'..ACTION_LABEL[p.playerAction]..' · '..ACTION_LABEL[p.enemyAction]..'<span class="bsim-verdict"> · '..({win='PLAYER WIN',draw='DRAW',lose='PLAYER LOSE'})[p.diceResult]..(p.entryId and ' · TABLE '..p.entryId or '')..'</span></div>'
   end
-  if presentation.kind=='normal' then
-    local verdict=presentation.diceResult=='win' and 'PLAYER WIN' or (presentation.diceResult=='lose' and 'PLAYER LOSE' or 'DRAW')
-    table.insert(parts,'<div class="bsim-action-readout"><span>'..ACTION_LABEL[presentation.playerAction]..'</span><span>'..ACTION_LABEL[presentation.enemyAction]..'</span></div>')
-    table.insert(parts,string.format('<div class="bsim-dice-stage"><span class="bsim-die bsim-die-player">%d</span><b>VS</b><span class="bsim-die bsim-die-enemy">%d</span></div>',presentation.playerDie,presentation.enemyDie))
-    table.insert(parts,'<div class="bsim-verdict">'..verdict..'</div>')
-  elseif presentation.kind=='groggy' then
-    table.insert(parts,'<div class="bsim-special-verdict">GROGGY OPENING</div>')
-  elseif presentation.kind=='down_wait' then
-    table.insert(parts,'<div class="bsim-special-verdict">DOWN COUNT</div>')
-  elseif presentation.kind=='both_groggy' then
-    table.insert(parts,'<div class="bsim-special-verdict">DOUBLE GROGGY</div>')
-  elseif presentation.kind=='interval' then
-    table.insert(parts,'<div class="bsim-special-verdict">ROUND INTERVAL</div>')
-  else table.insert(parts,'<div class="bsim-special-verdict">RESOLUTION</div>') end
-  if presentation.entryId then table.insert(parts,'<small>TABLE '..presentation.entryId..'</small>') end
-  table.insert(parts,'</div>'); return table.concat(parts)
+  return '<div class="bsim-resolution" role="status">'..esc(label or 'RESOLUTION')..(p.entryId and ' · TABLE '..p.entryId or '')..'</div>'
 end
-
 
 -- RisuAI adapter and desktop setup/live UI. No JavaScript or LLM calls required.
 do
@@ -1257,8 +1287,9 @@ function B.deckValid(deck)
   if tags.forces_attack and tags.fixed_six then return false,'도발 압박과 승부수는 함께 장착할 수 없습니다.' end
   return true
 end
-local function button(code,label,selected,disabled)
-  return '<button class="bsim-chip'..(selected and ' is-selected' or '')..'" '..(disabled and 'disabled aria-disabled="true"' or 'risu-btn="bs;'..esc(code)..'"')..'>'..esc(label)..'</button>'
+local function button(code,label,selected,disabled,content,extraClass)
+  -- Optional content is renderer-owned, escaped markup; ordinary labels stay escaped here.
+  return '<button type="button" class="bsim-chip'..(extraClass and ' '..extraClass or '')..(selected and ' is-selected' or '')..'" '..(selected~=nil and 'aria-pressed="'..tostring(not not selected)..'" ' or '')..(disabled and 'disabled aria-disabled="true"' or 'risu-btn="bs;'..esc(code)..'"')..'>'..(content or esc(label))..'</button>'
 end
 local function skillText(id,level)
   local d=B.skills[id]; local lv=d.levels[level or 1]; local parts={d.name..' · Lv.'..lv.level,d.description}
@@ -1268,10 +1299,12 @@ local function skillText(id,level)
   return table.concat(parts,'\n')
 end
 B.skillText=skillText
+-- Shared icons; retain skillPhotos for saved-config compatibility.
+local skillIconPath=B.skillIconPath
 local function detail(id,level,s,side)
-  if not id or not B.skills[id] then return '<div class="bsim-skill-detail">스킬을 선택하면 이곳에 설명이 표시됩니다. 기본 행동만 실행할 수도 있습니다.</div>' end
+  if not id or not B.skills[id] then return '' end
   local photo=''
-  if s and s.skillPhotos then photo='<img class="bsim-skill-photo" src="{{raw::'..esc(assetPath(s,side,'skill_'..id))..'}}" alt="'..esc(B.skills[id].name)..'">' end
+  if s and s.skillPhotos then photo='<img class="bsim-skill-photo" src="{{raw::'..esc(skillIconPath(id))..'}}" alt="'..esc(B.skills[id].name)..'">' end
   return '<div class="bsim-skill-detail" role="status">'..photo..'<div>'..esc(skillText(id,level)):gsub('\n','<br>')..'</div></div>'
 end
 local function setup(s,c)
@@ -1289,7 +1322,7 @@ local function setup(s,c)
     for _,npc in ipairs(NPCS) do parts[#parts+1]=button('policy;'..npc.id,npc.name..' · '..npc.difficulty,c.strategy==npc.id) end
     parts[#parts+1]='</div><p class="bsim-hint">초급 3종 AI는 기존 스킬 사용 순서를 따릅니다. 나머지 AI는 결정한 행동에서 사용 가능한 장착 스킬을 선택합니다.</p>'
   else parts[#parts+1]='<p>판단 충실도 1.0 · 행동과 스킬을 함께 판단합니다.</p>' end
-  parts[#parts+1]='<h4>연출</h4><div class="bsim-chip-list">'..button('fast',c.fast and '빠른 진행: 켜짐' or '빠른 진행: 꺼짐',c.fast)..button('photos',c.skillPhotos and '스킬 사진: 켜짐' or '스킬 사진: 꺼짐',c.skillPhotos)..'</div><p class="bsim-hint">기본 연출 속도는 기존과 같습니다. 스킬 사진을 추가한 뒤 스킬 사진을 켜세요.</p></section>'
+  parts[#parts+1]='<h4>연출</h4><div class="bsim-chip-list">'..button('fast',c.fast and '빠른 진행: 켜짐' or '빠른 진행: 꺼짐',c.fast)..button('photos',c.skillPhotos and '스킬 아이콘: 켜짐' or '스킬 아이콘: 꺼짐',c.skillPhotos)..'</div><p class="bsim-hint">기본 연출 속도는 기존과 같습니다. 스킬 아이콘을 추가한 뒤 스킬 아이콘을 켜세요.</p></section>'
   parts[#parts+1]='<section class="bsim-deck-editor"><h4>덱 구성</h4><div class="bsim-chip-list">'..button('side;player','플레이어 덱',c.deckSide=='player')..button('side;enemy','상대 덱',c.deckSide=='enemy')..'</div>'
   local side=c.deckSide; local deck=c[side..'Deck']
   parts[#parts+1]='<p>장착 '..#deck..' / 5 · 제어·결정기 각 1개까지</p><div class="bsim-equipped">'
@@ -1321,20 +1354,45 @@ end
 local function loadoutInfo(s,side)
   local c=s[side]; local parts={'<div class="bsim-live-deck"><b>'..(side=='player' and '내 장착 스킬' or '상대 장착 스킬')..'</b><div class="bsim-chip-list">'}
   for _,o in ipairs(c.skills) do
-    -- Enemy runtime data deliberately never enters the rendered HTML, including titles.
-    local tooltip=side=='player' and (' title="'..esc(skillText(o.id,o.level))..'"') or ''
-    parts[#parts+1]='<span class="bsim-skill-name"'..tooltip..'>'..esc(B.skills[o.id].name)..'</span>'
+    local id='bsim-'..s.matchId..'-'..side..'-'..o.id
+    -- Native popovertarget supplies a live implicit aria-expanded state (do not
+    -- override it with a stale literal attribute). aria-controls is explicit.
+    local name=esc(B.skills[o.id].name)
+    local face=s.skillPhotos and '<img class="bsim-skill-thumbnail" src="{{raw::'..esc(skillIconPath(o.id))..'}}" alt="'..name..'" loading="eager">' or name
+    parts[#parts+1]='<button type="button" class="bsim-chip bsim-skill-name'..(s.skillPhotos and ' bsim-skill-image-button' or '')..'" popovertarget="'..esc(id)..'" aria-controls="'..esc(id)..'" aria-label="'..name..'" title="'..name..'">'..face..'</button>'
+    local photo=s.skillPhotos and '<img class="bsim-skill-photo" src="{{raw::'..esc(skillIconPath(o.id))..'}}" alt="">' or ''
+    parts[#parts+1]='<div class="bsim-skill-popover" id="'..esc(id)..'" popover="auto" role="region" aria-label="'..(side=='player' and '내 스킬 설명' or '상대 스킬 설명')..'"><header><b>'..(side=='player' and '내 장착 스킬' or '상대 장착 스킬')..'</b><button type="button" class="bsim-chip" popovertarget="'..esc(id)..'" popovertargetaction="hide" aria-label="스킬 설명 닫기">닫기</button></header>'..photo..'<p>'..esc(skillText(o.id,o.level)):gsub('\n','<br>')..'</p></div>'
   end
   if #c.skills==0 then parts[#parts+1]='<span>없음</span>' end
   parts[#parts+1]='</div></div>'; return table.concat(parts)
+end
+local function rulesView(s)
+  local id='bsim-'..s.matchId..'-rules'
+  local parts={'<section class="bsim-rules" id="'..esc(id)..'" popover="auto" aria-label="판정 테이블"><header class="bsim-header"><div><span class="bsim-kicker">COMBAT RULES · 27 + 3</span><h3>판정 테이블</h3></div><button type="button" class="bsim-chip" popovertarget="'..esc(id)..'" popovertargetaction="hide">전투 화면으로 돌아가기</button></header><p>각 자원은 내 변화 / 상대 변화 순서입니다. 스킬 보정·자원 상한·다운 처리 전의 기본 판정값입니다. G01–G03은 상대만 그로기인 경우이며, 내가 그로기이면 양측 적용이 반대입니다.</p><div class="bsim-table-scroll" tabindex="0" role="region" aria-label="30개 판정 항목"><table><thead><tr>'}
+  for _,label in ipairs({'내 행동','상대 행동','dice 결과 / 구간','판정 결과','HP 변화','STA 변화','BRK 변화'}) do parts[#parts+1]='<th scope="col">'..label..'</th>' end
+  parts[#parts+1]='</tr></thead><tbody>'
+  local function change(n) return '<span class="bsim-change-'..(n>0 and 'plus' or (n<0 and 'minus' or 'zero'))..'">'..(n<0 and '−'..math.abs(n) or signed(n))..'</span>' end
+  for _,r in ipairs(B.ruleRows()) do
+    local dice=({win='내 dice > 상대',draw='내 dice = 상대',lose='내 dice < 상대',none='주사위 비교 없음'})[r.dice]
+    local result=({win='승',draw='무',lose='패',none='그로기 확정'})[r.dice]
+    parts[#parts+1]='<tr data-rule="'..r.value.id..'"><td>'..ACTION_LABEL[r.action]..'</td><td>'..(ACTION_LABEL[r.opponent] or '그로기')..'</td><td>'..dice..'</td><td>'..r.value.id..' · '..result..'</td>'
+    for _,key in ipairs({'hp','stamina','breakGauge'}) do parts[#parts+1]='<td>'..change(r.value.player[key])..' / '..change(r.value.enemy[key])..'</td>' end
+    parts[#parts+1]='</tr>'
+  end
+  parts[#parts+1]='</tbody></table></div></section>'
+  return table.concat(parts)
+end
+local function rulesButton(s)
+  local id='bsim-'..s.matchId..'-rules'
+  return '<button type="button" class="bsim-chip bsim-rules-button" popovertarget="'..esc(id)..'" aria-controls="'..esc(id)..'">판정 테이블</button>'
 end
 local function battle(s,c)
   local display=s
   if s.displayActors then display=copy(s); for k,v in pairs(s.displayActors) do display[k]=v end end
   local token=B.token(s)
-  local parts={'<div class="bsim-panel'..(s.presentation and ' is-resolving' or '')..(s.fast and ' bsim-fast' or '')..'"><header class="bsim-header"><div><span class="bsim-kicker">'..(s.aiMode=='ng_plus' and 'NG+ · 판단 충실도 1.0' or 'LIVE MATCH')..'</span><h3>Round '..display.roundNumber..' · Turn '..display.turnInRound..'</h3></div><span class="bsim-status">TOTAL '..s.matchTurn..'</span></header>'}
-  parts[#parts+1]=renderResolution(display)..'<div class="bsim-grid">'..renderCharacter(display,'player')..renderCharacter(display,'enemy')..'</div>'
-  parts[#parts+1]='<div class="bsim-grid">'..loadoutInfo(s,'player')..loadoutInfo(s,'enemy')..'</div>'
+  local parts={'<div class="bsim-panel bsim-battle'..(s.presentation and ' is-resolving' or '')..(s.fast and ' bsim-fast' or '')..'"><header class="bsim-header"><div><span class="bsim-kicker">'..(s.aiMode=='ng_plus' and 'NG+ · 판단 충실도 '..s.judgment or 'LIVE MATCH')..'</span><h3>Round '..display.roundNumber..' · Turn '..display.turnInRound..'</h3></div><span class="bsim-status">TOTAL '..s.matchTurn..'</span></header>'}
+  parts[#parts+1]='<div class="bsim-grid bsim-arena">'..renderCharacter(display,'player')..renderCharacter(display,'enemy')..'<span class="bsim-vs" aria-hidden="true">VS</span></div>'..renderResolution(display)
+  parts[#parts+1]='<div class="bsim-grid bsim-loadouts">'..loadoutInfo(s,'player')..loadoutInfo(s,'enemy')..'</div><div class="bsim-controls">'
   if s.notice then parts[#parts+1]='<p class="bsim-notice" role="alert">'..esc(s.notice)..'</p>' end
   if s.thinking then parts[#parts+1]='<div class="bsim-thinking" role="status">NG+가 행동을 판단하고 있습니다…</div>'
   elseif s.presentation then parts[#parts+1]='<button class="bsim-continue" risu-btn="bs;continue;'..token..'"><span>CONTINUE</span>'..(s.pendingInterval and '인터벌 확인' or (s.outcome and '결과 확인' or '다음 턴'))..'</button>'
@@ -1342,29 +1400,32 @@ local function battle(s,c)
     parts[#parts+1]='<div class="bsim-result"><strong>'..(({PLAYER_WIN='플레이어 승리',ENEMY_WIN='상대 승리',DOUBLE_KO='더블 KO',STALEMATE='교착'})[s.outcome] or s.outcome)..'</strong></div>'
   elseif B.canChoose(s,'player') then
     local act=s.selectedAction or B.legalActions(s,'player',true)[1]
-    parts[#parts+1]='<div class="bsim-actions">'
+    parts[#parts+1]='<section class="bsim-action-panel"><div class="bsim-actions">'
     for _,a in ipairs(ACTIONS) do parts[#parts+1]=button('act;'..token..';'..a,ACTION_LABEL[a],act==a,not has(B.legalActions(s,'player',true),a)) end
-    parts[#parts+1]='</div><div class="bsim-skill-selection"><h4>이번 턴 스킬</h4><div class="bsim-chip-list">'..button('skill;'..token..';none','기본 행동만',not s.selectedSkill)
+    parts[#parts+1]='</div>'..rulesButton(s)..'</section><div class="bsim-skill-selection"><h4>이번 턴 스킬</h4><div class="bsim-chip-list">'..button('skill;'..token..';none','기본 행동만',not s.selectedSkill)
     for _,o in ipairs(s.player.skills) do
       local ok,why=B.valid(s,'player',{action=act,skill=o.id},true)
       local status='CD '..(s.player.cooldowns[o.id] or 0)..' · 남은 '..(s.player.uses[o.id] or '∞')..'회'
-      parts[#parts+1]='<span class="bsim-skill-choice" title="'..esc(skillText(o.id,o.level))..'">'..button('skill;'..token..';'..o.id,B.skills[o.id].name,s.selectedSkill==o.id)..'<small>'..esc(status)..(ok and '' or ' · '..esc(why))..'</small></span>'
+      if s.player.roundUses[o.id]~=nil then status=status..' · 라운드 '..s.player.roundUses[o.id]..'회' end
+      local allowed={} for _,a in ipairs(B.level(s.player,o.id).requirements.allowed_actions) do allowed[#allowed+1]=ACTION_LABEL[a] end
+      local content='<span class="bsim-skill-choice-title">'..esc(B.skills[o.id].name)..'</span><small class="bsim-skill-choice-meta"><span>'..esc(status)..'</span><span>'..table.concat(allowed,'/')..(ok and '' or ' · '..esc(why))..'</span></small>'
+      parts[#parts+1]=button('skill;'..token..';'..o.id,B.skills[o.id].name,s.selectedSkill==o.id,false,content,'bsim-skill-choice')
     end
     parts[#parts+1]='</div>'
-    local owned=B.owned(s.player,s.selectedSkill)
-    parts[#parts+1]=detail(s.selectedSkill,owned and owned.level or 1,s,'player')
+    parts[#parts+1]='</div>'
     local intent={action=act,skill=s.selectedSkill or nil}; local ok,why=B.valid(s,'player',intent,true)
-    parts[#parts+1]=button('execute;'..token,'선택한 행동 실행',true,not ok)
-    if not ok then parts[#parts+1]='<p class="bsim-hint">'..esc(why)..'</p>' end
+    parts[#parts+1]='<div class="bsim-execute" aria-live="polite">'..button('execute;'..token,ok and '선택한 행동 실행' or why,true,not ok)
     parts[#parts+1]='</div>'
   else parts[#parts+1]=button('execute;'..token,'강제 턴 진행') end
+  if s.presentation or s.outcome or s.thinking or not B.canChoose(s,'player') then parts[#parts+1]=rulesButton(s) end
+  parts[#parts+1]='</div>'
   local statuses={}
   for _,st in ipairs(s.player.statuses) do statuses[#statuses+1]=esc(st.displayName or st.name)..' ('..st.remainingTurns..')' end
   for _,q in ipairs(s.player.queued) do statuses[#statuses+1]='예약: '..esc(B.skills[q.skill].name)..' ('..q.remainingTurns..')' end
   if #statuses>0 then parts[#parts+1]='<div class="bsim-own-status">내 상태 · '..table.concat(statuses,' / ')..'</div>' end
   parts[#parts+1]='<div class="bsim-log"><div class="bsim-log-title">COMBAT LOG</div>'
   for i=#s.log,1,-1 do parts[#parts+1]='<div class="bsim-log-line">'..esc(s.log[i])..'</div>' end
-  parts[#parts+1]='</div><div class="bsim-chip-list">'..button('livefast',s.fast and '빠른 진행: 켜짐' or '빠른 진행: 꺼짐',s.fast)..button('setup','대전 설정')..'</div>'..renderActionPreload(s)..'</div>'
+  parts[#parts+1]='</div><div class="bsim-chip-list bsim-footer">'..button('livefast',s.fast and '빠른 진행: 켜짐' or '빠른 진행: 꺼짐',s.fast)..button('setup','대전 설정')..'</div>'..rulesView(s)..renderActionPreload(s)..'</div>'
   return table.concat(parts)
 end
 function B.render(s,c)
@@ -1394,6 +1455,7 @@ local function runTurn(id,s)
 end
 function B.handle(id,code)
   if type(code)~='string' then return end
+  if B.busy[id] then return end -- Do not overwrite a yielding NG+ transaction.
   local action,param=code:match('^bs;([^;]+);?(.*)$'); if not action then return end
   local s=B.migrate(getState(id,STATE_KEY)); local c=getState(id,CONFIG_KEY)
   if not c then c=B.defaultConfig(); if type(s)=='table' and s.player then c.screen='battle' end end
@@ -1415,7 +1477,7 @@ function B.handle(id,code)
     elseif action=='side' and (param=='player' or param=='enemy') then c.deckSide=param; c.inspect=nil
     elseif action=='tab' and (param=='skills' or param=='developer') then c.tab=param; c.inspect=nil
     elseif action=='fast' then c.fast=not c.fast
-    elseif action=='photos' then c.skillPhotos=not c.skillPhotos
+    elseif action=='photos' then c.skillPhotos=not c.skillPhotos; if type(s)=='table' and s.player then s.skillPhotos=c.skillPhotos end
     elseif action=='edit' then
       local side,field=param:match('^(player)(Name)$'); if not side then side,field=param:match('^(enemy)(Name)$') end
       if not side then side,field=param:match('^(player)(Key)$') end; if not side then side,field=param:match('^(enemy)(Key)$') end
